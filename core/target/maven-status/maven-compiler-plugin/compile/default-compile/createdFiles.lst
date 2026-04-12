@@ -1,0 +1,6 @@
+net\enelson\sopli\lib\version\AbstractVersioned.class
+net\enelson\sopli\lib\external\ItemNBTUtils.class
+net\enelson\sopli\lib\item\ItemUtils.class
+net\enelson\sopli\lib\SopLib.class
+net\enelson\sopli\lib\util\Util.class
+net\enelson\sopli\lib\version\VersionManager.class
