@@ -223,6 +223,30 @@ public class ItemUtils_1_20_4 implements ItemUtils {
 	}
 
 	@Override
+	public ItemStack getHeadTexture(String texture, String name) {
+		if (texture == null || texture.trim().isEmpty()) {
+			ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+			if (name != null && !name.trim().isEmpty()) {
+				setName(head, name);
+			}
+			return head;
+		}
+
+		String value = texture.trim();
+		if (value.startsWith("http://") || value.startsWith("https://")) {
+			return getHeadURL(value, name);
+		}
+		if (value.startsWith("eyJ")) {
+			return getHead(value, name);
+		}
+		int index = value.lastIndexOf("/texture/");
+		if (index >= 0) {
+			value = value.substring(index + "/texture/".length());
+		}
+		return getHeadURL("https://textures.minecraft.net/texture/" + value, name);
+	}
+
+	@Override
 	public void setLore(ItemStack item, List<String> lore) {
 		if (item == null || item.getType() == Material.AIR) {
 			return;

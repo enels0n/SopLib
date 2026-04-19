@@ -15,6 +15,7 @@ public interface ItemUtils {
     Map<String, Integer> getEnchants(ItemStack item);
 	ItemStack getHead(String value, String name);
 	ItemStack getHeadURL(String url, String name);
+	ItemStack getHeadTexture(String texture, String name);
 	void setLore(ItemStack item, List<String> lore);
 	void setName(ItemStack item, String name);
 	void setCustomModelData(ItemStack item, Object... model);

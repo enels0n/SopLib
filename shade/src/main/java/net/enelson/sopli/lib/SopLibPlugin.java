@@ -33,6 +33,15 @@ public class SopLibPlugin extends JavaPlugin {
         getLogger().info("[SopLib] SopLib.getInstance() after set -> " + SopLib.getInstance());
     }
 
+    @Override
+    public void onDisable() {
+        SopLib instance = SopLib.getInstance();
+        if (instance != null) {
+            instance.shutdown();
+            SopLib.setInstance(null);
+        }
+    }
+
     private String getMinecraftVersion() {
         String bukkitVersion = Bukkit.getBukkitVersion();
         if (bukkitVersion == null || bukkitVersion.isEmpty()) {

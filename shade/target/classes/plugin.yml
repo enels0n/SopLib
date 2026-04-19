@@ -1,20 +1,6 @@
 name: SopLib
-version: 0.0.1
 main: net.enelson.sopli.lib.SopLibPlugin
-api-version: 1.20
-author: E_NeLson
-description: Multi-version utility library for Spigot 1.20.4-1.21.11
-
-commands:
-  soplib:
-    description: Test SopLib functionality
-    usage: /<command> [message]
-    permission: soplib.test
-    permission-message: §cYou don't have permission to use this command!
-
-permissions:
-  soplib.test:
-    description: Allows testing SopLib methods
-    default: op
-
-load: POSTWORLD
+version: ${project.version}
+api-version: 1.16
+softdepend: [WorldGuard]
+authors: [E_NeLsOn]

@@ -1,7 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <groupId>net.enelson.sopli.lib</groupId>
     <artifactId>soplib-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -10,6 +11,7 @@
 
     <modules>
         <module>core</module>
+        <module>impl-1.16.5</module>
         <module>impl-1.20.4</module>
         <module>impl-1.21.1</module>
         <module>impl-1.21.11</module>
