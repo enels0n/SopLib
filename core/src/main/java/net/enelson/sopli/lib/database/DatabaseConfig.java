@@ -1,4 +1,4 @@
-﻿package net.enelson.sopli.lib.database;
+package net.enelson.sopli.lib.database;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

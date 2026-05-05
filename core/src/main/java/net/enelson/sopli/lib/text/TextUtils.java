@@ -14,10 +14,19 @@ import java.util.regex.Pattern;
 public final class TextUtils {
 
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
-    private static final char SECTION_CHAR = '\u00A7';
+    private static final Pattern MINI_MESSAGE_TAG_PATTERN = Pattern.compile(
+            "<(/)?(?:"
+                    + "#[A-Fa-f0-9]{6}"
+                    + "|black|dark_blue|dark_green|dark_aqua|dark_red|dark_purple|gold|gray|grey|dark_gray"
+                    + "|blue|green|aqua|red|light_purple|yellow|white"
+                    + "|reset|bold|b|italic|i|underlined|u|strikethrough|st|obfuscated|obf"
+                    + "|gradient|transition|rainbow|color|newline|br|hover|click|lang|font|insert|key|selector|score|nbt"
+                    + ")(:[^>]*)?>",
+            Pattern.CASE_INSENSITIVE
+    );
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final LegacyComponentSerializer LEGACY_SERIALIZER = LegacyComponentSerializer.builder()
-            .character(SECTION_CHAR)
+            .character('\u00A7')
             .hexColors()
             .useUnusualXRepeatedCharacterHexFormat()
             .build();
@@ -35,11 +44,16 @@ public final class TextUtils {
         matcher.appendTail(buffer);
 
         String normalized = ChatColor.translateAlternateColorCodes('&', buffer.toString());
-        if (containsMiniMessage(normalized)) {
-            Component component = MINI_MESSAGE.deserialize(normalized.replace(SECTION_CHAR, '&'));
-            return LEGACY_SERIALIZER.serialize(component);
+        if (!containsMiniMessage(normalized)) {
+            return normalized;
         }
-        return normalized;
+
+        try {
+            Component component = MINI_MESSAGE.deserialize(normalized.replace('\u00A7', '&'));
+            return LEGACY_SERIALIZER.serialize(component);
+        } catch (Throwable ignored) {
+            return normalized;
+        }
     }
 
     public List<String> color(List<String> lines) {
@@ -55,6 +69,6 @@ public final class TextUtils {
     }
 
     private boolean containsMiniMessage(String input) {
-        return input.contains("<") && input.contains(">");
+        return input != null && MINI_MESSAGE_TAG_PATTERN.matcher(input).find();
     }
 }

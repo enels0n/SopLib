@@ -1,6 +1,6 @@
 name: SopLib
 main: net.enelson.sopli.lib.SopLibPlugin
-version: ${project.version}
+version: 0.0.1-SNAPSHOT
 api-version: 1.16
 softdepend: [WorldGuard]
 authors: [E_NeLsOn]
