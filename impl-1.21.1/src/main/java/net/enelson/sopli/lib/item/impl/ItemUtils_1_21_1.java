@@ -3,7 +3,6 @@ package net.enelson.sopli.lib.item.impl;
 import de.tr7zw.nbtapi.NBT;
 import de.tr7zw.nbtapi.NBTType;
 import de.tr7zw.nbtapi.iface.ReadWriteNBT;
-import de.tr7zw.nbtapi.iface.ReadableNBT;
 import net.enelson.sopli.lib.SopLib;
 import net.enelson.sopli.lib.external.ItemNBTUtils;
 import net.enelson.sopli.lib.item.ItemUtils;
@@ -156,43 +155,38 @@ public class ItemUtils_1_21_1 implements ItemUtils {
 			return null;
 		}
 
-		ReadableNBT nbt = NBT.itemStackToNBT(item);
-		if (nbt == null) {
-			return null;
-		}
-
 		Object value = null;
 
 		switch (nbtType) {
 		case NBTTagByte:
-			value = nbt.getByte(key);
+			value = NBT.get(item, nbt -> (byte) nbt.getByte(key));
 			break;
 		case NBTTagShort:
-			value = nbt.getShort(key);
+			value = NBT.get(item, nbt -> (short) nbt.getShort(key));
 			break;
 		case NBTTagInt:
-			value = nbt.getInteger(key);
+			value = NBT.get(item, nbt -> (int) nbt.getInteger(key));
 			break;
 		case NBTTagLong:
-			value = nbt.getLong(key);
+			value = NBT.get(item, nbt -> (long) nbt.getLong(key));
 			break;
 		case NBTTagFloat:
-			value = nbt.getFloat(key);
+			value = NBT.get(item, nbt -> (float) nbt.getFloat(key));
 			break;
 		case NBTTagDouble:
-			value = nbt.getDouble(key);
+			value = NBT.get(item, nbt -> (double) nbt.getDouble(key));
 			break;
 		case NBTTagString:
-			value = nbt.getString(key);
+			value = NBT.get(item, nbt -> (String) nbt.getString(key));
 			break;
 		case NBTTagByteArray:
-			value = nbt.getByteArray(key);
+			value = NBT.get(item, nbt -> (byte[]) nbt.getByteArray(key));
 			break;
 		case NBTTagIntArray:
-			value = nbt.getIntArray(key);
+			value = NBT.get(item, nbt -> (int[]) nbt.getIntArray(key));
 			break;
 		case NBTTagLongArray:
-			value = nbt.getLongArray(key);
+			value = NBT.get(item, nbt -> (long[]) nbt.getLongArray(key));
 			break;
 		default:
 			value = null;
