@@ -2,6 +2,7 @@ package net.enelson.sopli.lib.item.impl;
 
 import de.tr7zw.nbtapi.NBT;
 import de.tr7zw.nbtapi.NBTType;
+import de.tr7zw.nbtapi.iface.ReadableNBT;
 import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import net.enelson.sopli.lib.SopLib;
 import net.enelson.sopli.lib.external.ItemNBTUtils;
