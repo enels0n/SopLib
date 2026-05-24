@@ -57,9 +57,6 @@ Examples of plugins in the current ecosystem that depend on `SopLib`:
 
 ## Build
 
-Main output jar:
-- [SopLib.jar](shade/target/SopLib.jar)
-
 Typical build:
 
 ```bash
@@ -67,3 +64,6 @@ mvn -q -DskipTests install
 ```
 
 `install` is useful because other local `Sop*` plugins often depend on `soplib-core`.
+
+Build artifacts are not stored in the repository.
+Use local Maven builds or download published jars from GitHub Releases.
