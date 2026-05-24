@@ -5,7 +5,7 @@
 
     <groupId>net.enelson.sopli.lib</groupId>
     <artifactId>soplib-parent</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>SopLib Parent</name>
 
