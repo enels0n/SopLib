@@ -1,0 +1,69 @@
+# SopLib
+
+`SopLib` is the shared core library for the `Sop*` plugin ecosystem.
+
+Its main purpose is to keep ordinary plugins simple:
+- compile most plugins against `1.16.5`
+- keep code on `Java 8`
+- move version-specific/runtime compatibility into one place
+
+## What It Provides
+
+- text and color helpers
+- item utilities
+- item NBT helpers
+- custom block visual services
+- region helpers
+- protection helpers
+- reusable database layer
+- version/service resolution
+
+## Version Model
+
+Most `Sop*` plugins are built against old stable baselines and rely on `SopLib` for runtime compatibility.
+
+In practice:
+- plugin compile target is usually `1.16.5`
+- plugin Java target is usually `Java 8`
+- actual runtime support depends on the versions supported by `SopLib`
+
+Current built-in version modules:
+- `1.16.5`
+- `1.20.4`
+- `1.21.1`
+- `1.21.11`
+
+## Used By
+
+Examples of plugins in the current ecosystem that depend on `SopLib`:
+
+- `SopAFKZone`
+- `SopBattlePass`
+- `SopChat`
+- `SopCrates`
+- `SopCurrency`
+- `SopCustomBlocks`
+- `SopDisplays`
+- `SopEmojis`
+- `SopHighlight`
+- `SopLocales`
+- `SopMines`
+- `SopMobGuard`
+- `SopPillars`
+- `SopPrefix`
+- `SopPrison`
+- `SopPromocodes`
+- `SopRegionLimit`
+
+## Build
+
+Main output jar:
+- [SopLib.jar](shade/target/SopLib.jar)
+
+Typical build:
+
+```bash
+mvn -q -DskipTests install
+```
+
+`install` is useful because other local `Sop*` plugins often depend on `soplib-core`.
