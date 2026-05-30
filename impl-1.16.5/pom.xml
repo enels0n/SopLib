@@ -4,7 +4,7 @@
     <parent>
         <groupId>net.enelson.sopli.lib</groupId>
         <artifactId>soplib-parent</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
         <relativePath>..</relativePath>
     </parent>
     <artifactId>soplib-impl-1.16.5</artifactId>

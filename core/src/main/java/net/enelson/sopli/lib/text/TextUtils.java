@@ -14,7 +14,13 @@ import java.util.regex.Pattern;
 
 public final class TextUtils {
 
+    private static final int CHAT_CENTER_PX = 154;
+    private static final int SPACE_WIDTH = 4;
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern CENTER_BLOCK_PATTERN = Pattern.compile(
+            "<center(?:(?<shift>[+-]\\d+))?>(.*?)</center>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
     private static final Pattern MINI_MESSAGE_GRADIENT_PATTERN = Pattern.compile(
             "<(gradient|transition):([^>]+)>",
             Pattern.CASE_INSENSITIVE
@@ -25,7 +31,7 @@ public final class TextUtils {
                     + "|black|dark_blue|dark_green|dark_aqua|dark_red|dark_purple|gold|gray|grey|dark_gray"
                     + "|blue|green|aqua|red|light_purple|yellow|white"
                     + "|reset|bold|b|italic|i|underlined|u|strikethrough|st|obfuscated|obf"
-                    + "|gradient|transition|rainbow|color|newline|br|hover|click|lang|font|insert|key|selector|score|nbt"
+                    + "|gradient|transition|rainbow|color|newline|br|hover|click|lang|font|insert|key|selector|score|nbt|center(?:[+-]\\d+)?"
                     + ")(:[^>]*)?>",
             Pattern.CASE_INSENSITIVE
     );
@@ -57,7 +63,7 @@ public final class TextUtils {
             return "";
         }
 
-        String miniNormalized = normalizeMiniMessageTags(input);
+        String miniNormalized = prepareMiniMessage(input);
 
         Matcher matcher = HEX_PATTERN.matcher(miniNormalized);
         StringBuffer buffer = new StringBuffer();
@@ -92,6 +98,14 @@ public final class TextUtils {
         return result;
     }
 
+    public String prepareMiniMessage(String input) {
+        if (input == null) {
+            return "";
+        }
+        String centered = resolveCenterBlocks(input);
+        return normalizeMiniMessageTags(centered);
+    }
+
     private boolean containsMiniMessage(String input) {
         return input != null && MINI_MESSAGE_TAG_PATTERN.matcher(input).find();
     }
@@ -115,6 +129,121 @@ public final class TextUtils {
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    private String resolveCenterBlocks(String input) {
+        if (input == null || input.indexOf('<') < 0 || input.indexOf('>') < 0) {
+            return input;
+        }
+
+        Matcher matcher = CENTER_BLOCK_PATTERN.matcher(input);
+        StringBuffer result = new StringBuffer();
+        boolean replaced = false;
+        while (matcher.find()) {
+            String shiftValue = matcher.group("shift");
+            String content = matcher.group(2);
+            String replacement = buildCenteredText(content, parseCenterShift(shiftValue));
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+            replaced = true;
+        }
+        if (!replaced) {
+            return input;
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    private String buildCenteredText(String content, int pixelShift) {
+        String safeContent = content == null ? "" : content;
+        int messageWidth = measureTextWidth(stripFormattingForMeasure(safeContent));
+        if (messageWidth <= 0) {
+            return safeContent;
+        }
+
+        int paddingPixels = CHAT_CENTER_PX - (messageWidth / 2) + pixelShift;
+        if (paddingPixels <= 0) {
+            return safeContent;
+        }
+
+        int spaces = paddingPixels / SPACE_WIDTH;
+        StringBuilder builder = new StringBuilder(spaces + safeContent.length());
+        for (int index = 0; index < spaces; index++) {
+            builder.append(' ');
+        }
+        builder.append(safeContent);
+        return builder.toString();
+    }
+
+    private int parseCenterShift(String shiftValue) {
+        if (shiftValue == null || shiftValue.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(shiftValue);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private String stripFormattingForMeasure(String input) {
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+
+        String stripped = input.replaceAll("(?i)</?center(?:[+-]\\d+)?>", "");
+        stripped = stripped.replaceAll("(?i)<[^>]+>", "");
+        stripped = stripped.replaceAll("(?i)&#[A-Fa-f0-9]{6}", "");
+        stripped = stripped.replaceAll("(?i)\u00A7[0-9A-FK-ORX]", "");
+        stripped = stripped.replace('&', '\u00A7');
+        stripped = stripped.replaceAll("(?i)\u00A7[0-9A-FK-ORX]", "");
+        return stripped;
+    }
+
+    private int measureTextWidth(String input) {
+        if (input == null || input.isEmpty()) {
+            return 0;
+        }
+
+        int width = 0;
+        for (int index = 0; index < input.length(); index++) {
+            width += getCharacterWidth(input.charAt(index));
+        }
+        return width;
+    }
+
+    private int getCharacterWidth(char character) {
+        switch (character) {
+            case ' ':
+                return 4;
+            case '!':
+            case '\'':
+            case ',':
+            case '.':
+            case ':':
+            case ';':
+            case 'i':
+            case '|':
+                return 2;
+            case '`':
+            case 'l':
+                return 3;
+            case '"':
+            case '(':
+            case ')':
+            case '*':
+            case '<':
+            case '>':
+            case 'f':
+            case 'k':
+            case '{':
+            case '}':
+                return 5;
+            case '@':
+            case '~':
+                return 7;
+            default:
+                return 6;
+        }
     }
 
     private String applyLegacyMiniMessageFallback(String input) {

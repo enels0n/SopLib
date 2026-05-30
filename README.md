@@ -18,6 +18,22 @@ Its main purpose is to keep ordinary plugins simple:
 - reusable database layer
 - version/service resolution
 
+## Text formatting
+
+`SopLib` text helpers support legacy color codes, hex colors, and common MiniMessage-style tags.
+
+That now also includes:
+
+- `<center>your text</center>`
+- `<center-10>your text</center>`
+- `<center+10>your text</center>`
+
+`<center>` is resolved before MiniMessage conversion and is meant for single-line chat text centering.
+Signed numeric offsets shift the centered text in pixels:
+
+- `-` moves left
+- `+` moves right
+
 ## Version Model
 
 Most `Sop*` plugins are built against old stable baselines and rely on `SopLib` for runtime compatibility.
