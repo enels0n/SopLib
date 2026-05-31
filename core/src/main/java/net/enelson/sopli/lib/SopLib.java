@@ -1,5 +1,7 @@
 package net.enelson.sopli.lib;
 
+import net.enelson.sopli.lib.corpse.CorpseService;
+import net.enelson.sopli.lib.corpse.CorpseServices;
 import net.enelson.sopli.lib.customblocks.CustomBlockVisualService;
 import net.enelson.sopli.lib.customblocks.CustomBlockVisualServices;
 import net.enelson.sopli.lib.database.DatabaseService;
@@ -18,6 +20,7 @@ public final class SopLib {
     private final Util util;
     private final ItemUtils itemUtils;
     private final ItemNBTUtils itemNbtUtils;
+    private final CorpseService corpseService;
     private final CustomBlockVisualService customBlockVisualService;
     private final ProtectionService protectionService;
     private final RegionService regionService;
@@ -28,6 +31,7 @@ public final class SopLib {
         this.util = util;
         this.itemUtils = itemUtils;
         this.itemNbtUtils = itemNbtUtils;
+        this.corpseService = CorpseServices.resolve();
         this.customBlockVisualService = CustomBlockVisualServices.resolve();
         this.protectionService = ProtectionServices.resolve();
         this.regionService = RegionServices.resolve();
@@ -53,6 +57,10 @@ public final class SopLib {
 
     public ItemNBTUtils getItemNbtUtils() {
         return itemNbtUtils;
+    }
+
+    public CorpseService getCorpseService() {
+        return corpseService;
     }
 
     public CustomBlockVisualService getCustomBlockVisualService() {
@@ -85,6 +93,7 @@ public final class SopLib {
                 "util=" + util +
                 ", itemUtils=" + itemUtils +
                 ", itemNbtUtils=" + itemNbtUtils +
+                ", corpseService=" + corpseService +
                 ", customBlockVisualService=" + customBlockVisualService +
                 ", protectionService=" + protectionService +
                 ", regionService=" + regionService +
