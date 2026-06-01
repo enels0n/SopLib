@@ -21,6 +21,12 @@ public final class CorpseServices {
         if ("1.16.5".equals(minecraftVersion)) {
             return tryLoad("CorpseService_1_16_5");
         }
+        if ("1.21.1".equals(minecraftVersion)) {
+            return tryLoad("CorpseService_1_21_1");
+        }
+        if ("1.21.11".equals(minecraftVersion)) {
+            return tryLoad("CorpseService_1_21_11");
+        }
 
         Bukkit.getLogger().info("[SopLib] No CorpseService adapter for " + minecraftVersion + ", using noop.");
         return new CorpseServiceNoop();
