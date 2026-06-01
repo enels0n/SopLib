@@ -194,13 +194,10 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     private Object createGameProfile(String skinOwnerName) throws Exception {
         Class<?> gameProfileClass = Class.forName("com.mojang.authlib.GameProfile");
         Constructor<?> constructor = gameProfileClass.getConstructor(UUID.class, String.class);
-        String name = skinOwnerName != null && !skinOwnerName.trim().isEmpty() ? skinOwnerName : "corpse";
-        if (name.length() > 16) {
-            name = name.substring(0, 16);
-        }
+        String name = buildCorpseProfileName();
         Object profile = constructor.newInstance(UUID.randomUUID(), name);
 
-        Player onlinePlayer = Bukkit.getPlayerExact(name);
+        Player onlinePlayer = skinOwnerName != null && !skinOwnerName.trim().isEmpty() ? Bukkit.getPlayerExact(skinOwnerName) : null;
         if (onlinePlayer != null) {
             Object sourceProfile = extractProfile(onlinePlayer);
             if (sourceProfile != null) {
@@ -209,6 +206,11 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         }
 
         return profile;
+    }
+
+    private String buildCorpseProfileName() {
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        return ("corpse" + suffix).substring(0, 16);
     }
 
     private Object extractProfile(Player player) {
