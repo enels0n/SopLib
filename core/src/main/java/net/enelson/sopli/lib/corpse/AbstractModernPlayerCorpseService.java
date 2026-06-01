@@ -294,6 +294,19 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     private Object createPlayerInfoAddPacket(Object serverPlayer) throws Exception {
         Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket");
+        Object templateViewer = null;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            templateViewer = online;
+            break;
+        }
+        if (templateViewer == null) {
+            throw new IllegalStateException("Cannot create player corpse packet without an online viewer template");
+        }
+
+        Method getHandle = templateViewer.getClass().getMethod("getHandle");
+        Object templateHandle = getHandle.invoke(templateViewer);
+
+        Object packet = null;
         for (Method method : packetClass.getMethods()) {
             if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
                 continue;
@@ -303,21 +316,43 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             }
             Class<?>[] parameterTypes = method.getParameterTypes();
             if (parameterTypes.length == 1 && Collection.class.isAssignableFrom(parameterTypes[0])) {
-                return method.invoke(null, Collections.singletonList(serverPlayer));
+                packet = method.invoke(null, Collections.singletonList(templateHandle));
+                break;
             }
         }
+        if (packet == null) {
+            throw new NoSuchMethodException("Unable to create template ClientboundPlayerInfoUpdatePacket");
+        }
 
-        Class<?> actionClass = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$Action");
-        @SuppressWarnings("rawtypes")
-        Class<? extends Enum> enumClass = actionClass.asSubclass(Enum.class);
-        @SuppressWarnings("unchecked")
-        Enum<?> addPlayer = Enum.valueOf((Class) enumClass, "ADD_PLAYER");
-        @SuppressWarnings("unchecked")
-        Enum<?> updateListed = Enum.valueOf((Class) enumClass, "UPDATE_LISTED");
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        EnumSet<?> actions = EnumSet.of((Enum) addPlayer, (Enum) updateListed);
-        Constructor<?> constructor = packetClass.getConstructor(EnumSet.class, Collection.class);
-        return constructor.newInstance(actions, Collections.singletonList(serverPlayer));
+        Field entriesField = packetClass.getDeclaredField("c");
+        entriesField.setAccessible(true);
+        entriesField.set(packet, Collections.singletonList(createPlayerInfoEntry(serverPlayer)));
+        return packet;
+    }
+
+    private Object createPlayerInfoEntry(Object serverPlayer) throws Exception {
+        Class<?> entryClass = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$b");
+        Object profile = invokeMethod(serverPlayer, "getGameProfile");
+        UUID uuid = (UUID) invokeMethod(profile, "getId");
+
+        Class<?> gamemodeClass = Class.forName("net.minecraft.world.level.EnumGamemode");
+        Method byId = gamemodeClass.getMethod("a", int.class);
+        Object survivalMode = byId.invoke(null, Integer.valueOf(0));
+
+        Class<?> componentClass = Class.forName("net.minecraft.network.chat.IChatBaseComponent");
+        Method literal = componentClass.getMethod("a", String.class);
+        Object displayName = literal.invoke(null, invokeMethod(profile, "getName"));
+
+        Constructor<?> constructor = entryClass.getConstructor(
+                UUID.class,
+                Class.forName("com.mojang.authlib.GameProfile"),
+                boolean.class,
+                int.class,
+                gamemodeClass,
+                componentClass,
+                Class.forName("net.minecraft.network.chat.RemoteChatSession$a")
+        );
+        return constructor.newInstance(uuid, profile, Boolean.TRUE, Integer.valueOf(0), survivalMode, displayName, null);
     }
 
     private Object createPlayerInfoRemovePacket(List<UUID> uuids) throws Exception {
