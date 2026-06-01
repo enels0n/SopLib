@@ -138,8 +138,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
         String profileName = (String) invokeMethod(gameProfile, "getName");
 
-        moveEntity(serverPlayer, location.clone().add(0.5D, -1.92D, 0.5D), 0.0F, 0.0F);
-        configureCorpsePose(serverPlayer);
+        moveEntity(serverPlayer, location.clone().add(0.5D, 0.15D, 0.5D), 0.0F, 0.0F);
+        configureCorpsePose(serverPlayer, location);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();
         UUID entityUuid = (UUID) invokeMethod(serverPlayer, "getUUID");
@@ -295,14 +295,38 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private void configureCorpsePose(Object serverPlayer) throws Exception {
+    private void configureCorpsePose(Object serverPlayer, Location location) throws Exception {
         invokeBooleanSetter(serverPlayer, "setNoGravity", true);
         invokeBooleanSetter(serverPlayer, "setSilent", true);
         invokeBooleanSetter(serverPlayer, "setInvulnerable", true);
 
+        Object bedPos = createBlockPosition(location.getBlockX(), location.getBlockY() - 1, location.getBlockZ());
+        if (tryConfigureSleepingPose(serverPlayer, bedPos)) {
+            return;
+        }
+
         Class<?> poseClass = Class.forName("net.minecraft.world.entity.Pose");
-        Object swimmingPose = Enum.valueOf((Class<Enum>) poseClass.asSubclass(Enum.class), "SWIMMING");
-        invokeMethod(serverPlayer, "setPose", poseClass, swimmingPose);
+        Object sleepingPose = Enum.valueOf((Class<Enum>) poseClass.asSubclass(Enum.class), "SLEEPING");
+        invokeMethod(serverPlayer, "setPose", poseClass, sleepingPose);
+        tryInvokeCompatibleMethod(serverPlayer, new String[] { "b", "c" }, bedPos.getClass(), bedPos);
+    }
+
+    private boolean tryConfigureSleepingPose(Object serverPlayer, Object bedPos) {
+        try {
+            Field fauxSleeping = findField(serverPlayer.getClass(), "fauxSleeping");
+            if (fauxSleeping != null) {
+                fauxSleeping.setAccessible(true);
+                fauxSleeping.set(serverPlayer, Boolean.TRUE);
+            }
+
+            Method sleepMethod = findCompatibleMethod(serverPlayer.getClass(), new String[] { "startSleepInBed", "a" }, bedPos.getClass(), boolean.class);
+            if (sleepMethod != null) {
+                sleepMethod.invoke(serverPlayer, bedPos, Boolean.TRUE);
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private Object createPlayerInfoAddPacket(Object serverPlayer) throws Exception {
@@ -503,6 +527,18 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         throw new NoSuchFieldException("No compatible field/getter found on " + instance.getClass().getName());
     }
 
+    private Field findField(Class<?> type, String name) {
+        Class<?> current = type;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
+    }
+
     private Method findCompatibleMethod(Class<?> type, String[] names, Class<?>... parameterTypes) {
         Class<?> current = type;
         while (current != null && current != Object.class) {
@@ -558,6 +594,25 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     private void invokeMethod(Object target, String methodName, Class<?> parameterType, Object arg) throws Exception {
         Method method = target.getClass().getMethod(methodName, parameterType);
         method.invoke(target, arg);
+    }
+
+    private boolean tryInvokeCompatibleMethod(Object target, String[] methodNames, Class<?> parameterType, Object arg) {
+        try {
+            Method method = findCompatibleMethod(target.getClass(), methodNames, parameterType);
+            if (method == null) {
+                return false;
+            }
+            method.invoke(target, arg);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private Object createBlockPosition(int x, int y, int z) throws Exception {
+        Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPosition");
+        Constructor<?> constructor = blockPosClass.getConstructor(int.class, int.class, int.class);
+        return constructor.newInstance(Integer.valueOf(x), Integer.valueOf(y), Integer.valueOf(z));
     }
 
     private Class<?> findNestedClass(Class<?> owner, String simpleName) {
