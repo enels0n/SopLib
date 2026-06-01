@@ -22,9 +22,6 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.scoreboard.NameTagVisibility;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
 
 public abstract class AbstractModernPlayerCorpseService implements CorpseService {
 
@@ -115,11 +112,13 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             Object removeInfoPacket = createPlayerInfoRemovePacket(Collections.singletonList(corpse.profileUuid));
             for (Player viewer : Bukkit.getOnlinePlayers()) {
                 sendPacket(viewer, destroyPacket);
+                if (corpse.teamRemovePacket != null) {
+                    sendPacket(viewer, corpse.teamRemovePacket);
+                }
                 if (removeInfoPacket != null) {
                     sendPacket(viewer, removeInfoPacket);
                 }
             }
-            unregisterHiddenNameTeam(corpse.hiddenNameTeam, corpse.profileName);
         } catch (Throwable throwable) {
             throwable.printStackTrace();
         }
@@ -153,13 +152,17 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         Object metadataPacket = createMetadataPacket(entityId, serverPlayer);
         Object removeInfoPacket = createPlayerInfoRemovePacket(Collections.singletonList(profileUuid));
 
-        String hiddenNameTeam = registerHiddenNameTeam(profileName);
-        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket, hiddenNameTeam);
+        Object teamCreatePacket = createHiddenNameTeamCreatePacket(profileName);
+        Object teamRemovePacket = createHiddenNameTeamRemovePacket(profileName);
+        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket, teamCreatePacket, teamRemovePacket);
     }
 
     private void broadcastSpawn(final VisualCorpse corpse) throws Exception {
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             sendPacket(viewer, corpse.playerInfoPacket);
+            if (corpse.teamCreatePacket != null) {
+                sendPacket(viewer, corpse.teamCreatePacket);
+            }
             sendPacket(viewer, corpse.spawnPacket);
             sendPacket(viewer, corpse.metadataPacket);
         }
@@ -452,55 +455,76 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         return constructor.newInstance(new int[] { entityId });
     }
 
-    private String registerHiddenNameTeam(String profileName) {
+    private Object createHiddenNameTeamCreatePacket(String profileName) {
         try {
-            Scoreboard scoreboard = Bukkit.getScoreboardManager() != null ? Bukkit.getScoreboardManager().getMainScoreboard() : null;
-            if (scoreboard == null) {
+            Object scoreboard = createNmsScoreboard();
+            Object team = createNmsScoreboardTeam(scoreboard, profileName);
+            if (team == null) {
                 return null;
             }
-
-            String baseName = "slc_" + profileName.toLowerCase();
-            String teamName = baseName.length() > 16 ? baseName.substring(0, 16) : baseName;
-            int suffix = 1;
-            while (true) {
-                Team existing = scoreboard.getTeam(teamName);
-                if (existing == null) {
-                    Team team = scoreboard.registerNewTeam(teamName);
-                    team.setNameTagVisibility(NameTagVisibility.NEVER);
-                    team.addEntry(profileName);
-                    return teamName;
-                }
-                if (existing.hasEntry(profileName)) {
-                    existing.setNameTagVisibility(NameTagVisibility.NEVER);
-                    return teamName;
-                }
-                String candidate = baseName + suffix++;
-                teamName = candidate.length() > 16 ? candidate.substring(0, 16) : candidate;
-            }
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
+            Method createMethod = findCompatibleMethod(packetClass, new String[] { "a" }, team.getClass(), boolean.class);
+            return createMethod != null ? createMethod.invoke(null, team, Boolean.TRUE) : null;
         } catch (Throwable ignored) {
             return null;
         }
     }
 
-    private void unregisterHiddenNameTeam(String teamName, String profileName) {
-        if (teamName == null || teamName.isEmpty()) {
-            return;
-        }
+    private Object createHiddenNameTeamRemovePacket(String profileName) {
         try {
-            Scoreboard scoreboard = Bukkit.getScoreboardManager() != null ? Bukkit.getScoreboardManager().getMainScoreboard() : null;
-            if (scoreboard == null) {
-                return;
-            }
-            Team team = scoreboard.getTeam(teamName);
+            Object scoreboard = createNmsScoreboard();
+            Object team = createNmsScoreboardTeam(scoreboard, profileName);
             if (team == null) {
-                return;
+                return null;
             }
-            team.removeEntry(profileName);
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
-            }
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
+            Method removeMethod = findCompatibleMethod(packetClass, new String[] { "a" }, team.getClass());
+            return removeMethod != null ? removeMethod.invoke(null, team) : null;
         } catch (Throwable ignored) {
+            return null;
         }
+    }
+
+    private Object createNmsScoreboard() throws Exception {
+        Class<?> scoreboardClass = Class.forName("net.minecraft.world.scores.Scoreboard");
+        return scoreboardClass.getConstructor().newInstance();
+    }
+
+    private Object createNmsScoreboardTeam(Object scoreboard, String profileName) throws Exception {
+        Class<?> teamClass = Class.forName("net.minecraft.world.scores.ScoreboardTeam");
+        Constructor<?> constructor = teamClass.getConstructor(scoreboard.getClass(), String.class);
+        String teamName = buildHiddenTeamName(profileName);
+        Object team = constructor.newInstance(scoreboard, teamName);
+
+        Class<?> visibilityClass = Class.forName("net.minecraft.world.scores.ScoreboardTeamBase$EnumNameTagVisibility");
+        Method byString = visibilityClass.getMethod("a", String.class);
+        Object neverVisibility = byString.invoke(null, "never");
+        Method setNameTagVisibility = findCompatibleMethod(teamClass, new String[] { "a" }, visibilityClass);
+        if (setNameTagVisibility != null) {
+            setNameTagVisibility.invoke(team, neverVisibility);
+        }
+
+        Method addPlayerToTeam = findCompatibleMethod(scoreboard.getClass(), new String[] { "a" }, String.class, teamClass);
+        if (addPlayerToTeam != null) {
+            addPlayerToTeam.invoke(scoreboard, profileName, team);
+        } else {
+            Method getEntriesMethod = findCompatibleMethod(teamClass, new String[] { "g" });
+            Object entries = getEntriesMethod != null ? getEntriesMethod.invoke(team) : null;
+            if (entries instanceof Collection) {
+                ((Collection) entries).add(profileName);
+            }
+        }
+
+        return team;
+    }
+
+    private String buildHiddenTeamName(String profileName) {
+        String normalized = (profileName == null ? "corpse" : profileName).toLowerCase();
+        String baseName = "slc_" + normalized;
+        if (baseName.length() <= 16) {
+            return baseName;
+        }
+        return baseName.substring(0, 16);
     }
 
     private Object createTrackerEntry(Object entity, Location location) throws Exception {
@@ -751,11 +775,12 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         private final Object spawnPacket;
         private final Object metadataPacket;
         private final Object removeInfoPacket;
-        private final String hiddenNameTeam;
+        private final Object teamCreatePacket;
+        private final Object teamRemovePacket;
 
         private VisualCorpse(int entityId, UUID entityUuid, UUID profileUuid, String profileName,
                              Object playerInfoPacket, Object spawnPacket, Object metadataPacket, Object removeInfoPacket,
-                             String hiddenNameTeam) {
+                             Object teamCreatePacket, Object teamRemovePacket) {
             this.entityId = entityId;
             this.entityUuid = entityUuid;
             this.profileUuid = profileUuid;
@@ -764,7 +789,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             this.spawnPacket = spawnPacket;
             this.metadataPacket = metadataPacket;
             this.removeInfoPacket = removeInfoPacket;
-            this.hiddenNameTeam = hiddenNameTeam;
+            this.teamCreatePacket = teamCreatePacket;
+            this.teamRemovePacket = teamRemovePacket;
         }
     }
 
