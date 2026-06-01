@@ -6,6 +6,14 @@ public interface CorpseHandle {
 
     UUID getEntityUuid();
 
+    default UUID getInteractionEntityUuid() {
+        return getEntityUuid();
+    }
+
+    default int getVisualEntityId() {
+        return -1;
+    }
+
     boolean isValid();
 
     void remove();

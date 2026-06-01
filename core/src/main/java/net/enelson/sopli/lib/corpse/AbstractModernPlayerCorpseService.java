@@ -35,7 +35,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             return new CorpseServiceNoop().createCorpse(location, corpseName, skinOwnerName);
         }
 
-        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.5D, -1.35D, 0.5D), ArmorStand.class);
+        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.5D, -0.95D, 0.5D), ArmorStand.class);
         anchor.setGravity(false);
         anchor.setInvulnerable(true);
         anchor.setSilent(true);
@@ -65,6 +65,17 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             @Override
             public UUID getEntityUuid() {
                 return anchorUuid;
+            }
+
+            @Override
+            public UUID getInteractionEntityUuid() {
+                return anchorUuid;
+            }
+
+            @Override
+            public int getVisualEntityId() {
+                VisualCorpse corpse = corpses.get(anchorUuid);
+                return corpse != null ? corpse.entityId : -1;
             }
 
             @Override
@@ -127,7 +138,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
         String profileName = (String) invokeMethod(gameProfile, "getName");
 
-        moveEntity(serverPlayer, location.clone().add(0.5D, -1.62D, 0.5D), 0.0F, 0.0F);
+        moveEntity(serverPlayer, location.clone().add(0.5D, -1.92D, 0.5D), 0.0F, 0.0F);
         configureCorpsePose(serverPlayer);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();

@@ -55,10 +55,21 @@ public class CorpseService_1_16_5 implements CorpseService {
         stand.setBoots(createArmorPiece(Material.LEATHER_BOOTS));
 
         final UUID entityUuid = stand.getUniqueId();
+        final int entityId = stand.getEntityId();
         return new CorpseHandle() {
             @Override
             public UUID getEntityUuid() {
                 return entityUuid;
+            }
+
+            @Override
+            public UUID getInteractionEntityUuid() {
+                return entityUuid;
+            }
+
+            @Override
+            public int getVisualEntityId() {
+                return entityId;
             }
 
             @Override
