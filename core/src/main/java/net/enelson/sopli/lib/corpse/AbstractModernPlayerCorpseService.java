@@ -209,8 +209,14 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     }
 
     private String buildCorpseProfileName() {
-        String suffix = UUID.randomUUID().toString().replace("-", "");
-        return ("corpse" + suffix).substring(0, 16);
+        final char[] invisibleAlphabet = new char[] { '\u200B', '\u200C', '\u200D', '\u2060' };
+        long value = UUID.randomUUID().getLeastSignificantBits();
+        StringBuilder builder = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) {
+            builder.append(invisibleAlphabet[(int) (value & 3L)]);
+            value >>>= 2;
+        }
+        return builder.toString();
     }
 
     private Object extractProfile(Player player) {
