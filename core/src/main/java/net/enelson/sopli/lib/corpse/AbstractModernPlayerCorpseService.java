@@ -45,7 +45,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         anchor.setSmall(false);
         anchor.setMarker(false);
         anchor.setCustomName(corpseName);
-        anchor.setCustomNameVisible(true);
+        anchor.setCustomNameVisible(false);
         anchor.addScoreboardTag(TAG);
         try {
             anchor.addEquipmentLock(EquipmentSlot.HEAD, ArmorStand.LockType.REMOVING_OR_CHANGING);
