@@ -11,8 +11,10 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -412,25 +414,41 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     private Object createTrackerEntry(Object entity, Location location) throws Exception {
         Object worldHandle = getWorldHandle(location);
-        Class<?> serverEntityClass = Class.forName("net.minecraft.server.level.ServerEntity");
-        Class<?> synchronizerClass = findNestedClass(serverEntityClass, "Synchronizer");
+        Class<?> trackerEntryClass = resolveTrackerEntryClass();
 
-        Object packetSender = synchronizerClass != null
-                ? Proxy.newProxyInstance(synchronizerClass.getClassLoader(), new Class<?>[] { synchronizerClass }, new NoOpInvocationHandler())
-                : null;
-
-        for (Constructor<?> constructor : serverEntityClass.getConstructors()) {
+        for (Constructor<?> constructor : trackerEntryClass.getConstructors()) {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
-            if (parameterTypes.length != 5) {
-                continue;
+
+            if (parameterTypes.length == 6
+                    && parameterTypes[0].isInstance(worldHandle)
+                    && parameterTypes[1].isInstance(entity)
+                    && parameterTypes[2] == int.class
+                    && parameterTypes[3] == boolean.class
+                    && Consumer.class.isAssignableFrom(parameterTypes[4])
+                    && Set.class.isAssignableFrom(parameterTypes[5])) {
+                Consumer<Object> packetSender = packet -> {
+                };
+                return constructor.newInstance(worldHandle, entity, Integer.valueOf(0), Boolean.FALSE, packetSender, Collections.emptySet());
             }
-            if (!parameterTypes[0].isInstance(worldHandle) || !parameterTypes[1].isInstance(entity)) {
-                continue;
+
+            if (parameterTypes.length == 5 && parameterTypes[0].isInstance(worldHandle) && parameterTypes[1].isInstance(entity)) {
+                Class<?> synchronizerClass = findNestedClass(trackerEntryClass, "Synchronizer");
+                Object packetSender = synchronizerClass != null
+                        ? Proxy.newProxyInstance(synchronizerClass.getClassLoader(), new Class<?>[] { synchronizerClass }, new NoOpInvocationHandler())
+                        : null;
+                return constructor.newInstance(worldHandle, entity, Integer.valueOf(0), Boolean.FALSE, packetSender);
             }
-            Object[] args = new Object[] { worldHandle, entity, Integer.valueOf(0), Boolean.FALSE, packetSender };
-            return constructor.newInstance(args);
         }
-        throw new NoSuchMethodException("No compatible ServerEntity constructor found");
+
+        throw new NoSuchMethodException("No compatible tracker entry constructor found");
+    }
+
+    private Class<?> resolveTrackerEntryClass() throws ClassNotFoundException {
+        try {
+            return Class.forName("net.minecraft.server.level.EntityTrackerEntry");
+        } catch (ClassNotFoundException ignored) {
+            return Class.forName("net.minecraft.server.level.ServerEntity");
+        }
     }
 
     private void sendPacket(Player viewer, Object packet) throws Exception {
