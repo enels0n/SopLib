@@ -44,8 +44,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         anchor.setArms(false);
         anchor.setSmall(false);
         anchor.setMarker(false);
-        anchor.setCustomName(corpseName);
-        anchor.setCustomNameVisible(true);
+        anchor.setCustomName(null);
+        anchor.setCustomNameVisible(false);
         anchor.addScoreboardTag(TAG);
         try {
             anchor.addEquipmentLock(EquipmentSlot.HEAD, ArmorStand.LockType.REMOVING_OR_CHANGING);
@@ -54,7 +54,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
         UUID anchorUuid = anchor.getUniqueId();
         try {
-            VisualCorpse corpse = createVisualCorpse(location, skinOwnerName);
+            VisualCorpse corpse = createVisualCorpse(location, corpseName, skinOwnerName);
             corpses.put(anchorUuid, corpse);
             broadcastSpawn(corpse);
         } catch (Throwable throwable) {
@@ -131,10 +131,10 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     protected abstract String getImplementationName();
 
-    private VisualCorpse createVisualCorpse(Location location, String skinOwnerName) throws Exception {
+    private VisualCorpse createVisualCorpse(Location location, String corpseName, String skinOwnerName) throws Exception {
         Object minecraftServer = getMinecraftServer();
         Object serverLevel = getWorldHandle(location);
-        Object gameProfile = createGameProfile(skinOwnerName);
+        Object gameProfile = createGameProfile(corpseName, skinOwnerName);
         Object clientInformation = createClientInformation();
         Object serverPlayer = createServerPlayer(minecraftServer, serverLevel, gameProfile, clientInformation);
 
@@ -152,9 +152,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         Object metadataPacket = createMetadataPacket(entityId, serverPlayer);
         Object removeInfoPacket = createPlayerInfoRemovePacket(Collections.singletonList(profileUuid));
 
-        Object teamCreatePacket = createHiddenNameTeamCreatePacket(profileName);
-        Object teamRemovePacket = createHiddenNameTeamRemovePacket(profileName);
-        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket, teamCreatePacket, teamRemovePacket);
+        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket, null, null);
     }
 
     private void broadcastSpawn(final VisualCorpse corpse) throws Exception {
@@ -191,10 +189,10 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         return getHandle.invoke(location.getWorld());
     }
 
-    private Object createGameProfile(String skinOwnerName) throws Exception {
+    private Object createGameProfile(String corpseName, String skinOwnerName) throws Exception {
         Class<?> gameProfileClass = Class.forName("com.mojang.authlib.GameProfile");
         Constructor<?> constructor = gameProfileClass.getConstructor(UUID.class, String.class);
-        String name = buildCorpseProfileName();
+        String name = buildCorpseProfileName(corpseName, skinOwnerName);
         Object profile = constructor.newInstance(UUID.randomUUID(), name);
 
         Player onlinePlayer = skinOwnerName != null && !skinOwnerName.trim().isEmpty() ? Bukkit.getPlayerExact(skinOwnerName) : null;
@@ -208,15 +206,15 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         return profile;
     }
 
-    private String buildCorpseProfileName() {
-        final char[] invisibleAlphabet = new char[] { '\u200B', '\u200C', '\u200D', '\u2060' };
-        long value = UUID.randomUUID().getLeastSignificantBits();
-        StringBuilder builder = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) {
-            builder.append(invisibleAlphabet[(int) (value & 3L)]);
-            value >>>= 2;
+    private String buildCorpseProfileName(String corpseName, String skinOwnerName) {
+        String name = corpseName != null ? corpseName.trim() : "";
+        if (name.isEmpty()) {
+            name = skinOwnerName != null ? skinOwnerName.trim() : "";
         }
-        return builder.toString();
+        if (name.isEmpty()) {
+            name = "Corpse";
+        }
+        return name;
     }
 
     private Object extractProfile(Player player) {
