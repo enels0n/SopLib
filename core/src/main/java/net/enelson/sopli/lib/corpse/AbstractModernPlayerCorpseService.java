@@ -22,6 +22,9 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.scoreboard.NameTagVisibility;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 
 public abstract class AbstractModernPlayerCorpseService implements CorpseService {
 
@@ -45,7 +48,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         anchor.setSmall(false);
         anchor.setMarker(false);
         anchor.setCustomName(corpseName);
-        anchor.setCustomNameVisible(false);
+        anchor.setCustomNameVisible(true);
         anchor.addScoreboardTag(TAG);
         try {
             anchor.addEquipmentLock(EquipmentSlot.HEAD, ArmorStand.LockType.REMOVING_OR_CHANGING);
@@ -116,6 +119,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
                     sendPacket(viewer, removeInfoPacket);
                 }
             }
+            unregisterHiddenNameTeam(corpse.hiddenNameTeam, corpse.profileName);
         } catch (Throwable throwable) {
             throwable.printStackTrace();
         }
@@ -149,7 +153,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         Object metadataPacket = createMetadataPacket(entityId, serverPlayer);
         Object removeInfoPacket = createPlayerInfoRemovePacket(Collections.singletonList(profileUuid));
 
-        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket);
+        String hiddenNameTeam = registerHiddenNameTeam(profileName);
+        return new VisualCorpse(entityId, entityUuid, profileUuid, profileName, playerInfoPacket, spawnPacket, metadataPacket, removeInfoPacket, hiddenNameTeam);
     }
 
     private void broadcastSpawn(final VisualCorpse corpse) throws Exception {
@@ -447,6 +452,57 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         return constructor.newInstance(new int[] { entityId });
     }
 
+    private String registerHiddenNameTeam(String profileName) {
+        try {
+            Scoreboard scoreboard = Bukkit.getScoreboardManager() != null ? Bukkit.getScoreboardManager().getMainScoreboard() : null;
+            if (scoreboard == null) {
+                return null;
+            }
+
+            String baseName = "slc_" + profileName.toLowerCase();
+            String teamName = baseName.length() > 16 ? baseName.substring(0, 16) : baseName;
+            int suffix = 1;
+            while (true) {
+                Team existing = scoreboard.getTeam(teamName);
+                if (existing == null) {
+                    Team team = scoreboard.registerNewTeam(teamName);
+                    team.setNameTagVisibility(NameTagVisibility.NEVER);
+                    team.addEntry(profileName);
+                    return teamName;
+                }
+                if (existing.hasEntry(profileName)) {
+                    existing.setNameTagVisibility(NameTagVisibility.NEVER);
+                    return teamName;
+                }
+                String candidate = baseName + suffix++;
+                teamName = candidate.length() > 16 ? candidate.substring(0, 16) : candidate;
+            }
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void unregisterHiddenNameTeam(String teamName, String profileName) {
+        if (teamName == null || teamName.isEmpty()) {
+            return;
+        }
+        try {
+            Scoreboard scoreboard = Bukkit.getScoreboardManager() != null ? Bukkit.getScoreboardManager().getMainScoreboard() : null;
+            if (scoreboard == null) {
+                return;
+            }
+            Team team = scoreboard.getTeam(teamName);
+            if (team == null) {
+                return;
+            }
+            team.removeEntry(profileName);
+            if (team.getEntries().isEmpty()) {
+                team.unregister();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private Object createTrackerEntry(Object entity, Location location) throws Exception {
         Object worldHandle = getWorldHandle(location);
         Class<?> trackerEntryClass = resolveTrackerEntryClass();
@@ -695,9 +751,11 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         private final Object spawnPacket;
         private final Object metadataPacket;
         private final Object removeInfoPacket;
+        private final String hiddenNameTeam;
 
         private VisualCorpse(int entityId, UUID entityUuid, UUID profileUuid, String profileName,
-                             Object playerInfoPacket, Object spawnPacket, Object metadataPacket, Object removeInfoPacket) {
+                             Object playerInfoPacket, Object spawnPacket, Object metadataPacket, Object removeInfoPacket,
+                             String hiddenNameTeam) {
             this.entityId = entityId;
             this.entityUuid = entityUuid;
             this.profileUuid = profileUuid;
@@ -706,6 +764,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             this.spawnPacket = spawnPacket;
             this.metadataPacket = metadataPacket;
             this.removeInfoPacket = removeInfoPacket;
+            this.hiddenNameTeam = hiddenNameTeam;
         }
     }
 
