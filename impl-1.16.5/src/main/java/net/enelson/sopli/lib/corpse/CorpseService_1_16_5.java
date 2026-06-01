@@ -3,12 +3,16 @@ package net.enelson.sopli.lib.corpse;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.util.EulerAngle;
 
 public class CorpseService_1_16_5 implements CorpseService {
 
@@ -20,17 +24,22 @@ public class CorpseService_1_16_5 implements CorpseService {
             return new CorpseServiceNoop().createCorpse(location, corpseName, skinOwnerName);
         }
 
-        ArmorStand stand = location.getWorld().spawn(location.clone().add(0.5D, -1.1D, 0.5D), ArmorStand.class);
+        ArmorStand stand = location.getWorld().spawn(location.clone().add(0.5D, -1.45D, 0.5D), ArmorStand.class);
         stand.setGravity(false);
         stand.setInvulnerable(true);
         stand.setSilent(true);
-        stand.setVisible(false);
+        stand.setVisible(true);
         stand.setBasePlate(false);
         stand.setArms(false);
         stand.setSmall(false);
         stand.setMarker(false);
+        stand.setCanPickupItems(false);
+        stand.setCollidable(false);
         stand.setCustomName(corpseName);
         stand.setCustomNameVisible(true);
+        stand.setHeadPose(new EulerAngle(Math.toRadians(18), 0, 0));
+        stand.setRightArmPose(new EulerAngle(Math.toRadians(272), 0, Math.toRadians(12)));
+        stand.setLeftArmPose(new EulerAngle(Math.toRadians(272), 0, Math.toRadians(-12)));
         stand.addScoreboardTag(TAG);
 
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -40,6 +49,10 @@ public class CorpseService_1_16_5 implements CorpseService {
             head.setItemMeta(meta);
         }
         stand.setHelmet(head);
+        stand.addEquipmentLock(EquipmentSlot.HEAD, ArmorStand.LockType.REMOVING_OR_CHANGING);
+        stand.setChestplate(createArmorPiece(Material.LEATHER_CHESTPLATE));
+        stand.setLeggings(createArmorPiece(Material.LEATHER_LEGGINGS));
+        stand.setBoots(createArmorPiece(Material.LEATHER_BOOTS));
 
         final UUID entityUuid = stand.getUniqueId();
         return new CorpseHandle() {
@@ -81,5 +94,15 @@ public class CorpseService_1_16_5 implements CorpseService {
     @Override
     public String toString() {
         return "CorpseService_1_16_5";
+    }
+
+    private ItemStack createArmorPiece(Material material) {
+        ItemStack item = new ItemStack(material);
+        LeatherArmorMeta meta = (LeatherArmorMeta) item.getItemMeta();
+        if (meta != null) {
+            meta.setColor(Color.fromRGB(44, 34, 30));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 }
