@@ -27,6 +27,9 @@ import org.bukkit.inventory.EquipmentSlot;
 public abstract class AbstractModernPlayerCorpseService implements CorpseService {
 
     private static final String TAG = "soplib_corpse_anchor";
+    private static final double CORPSE_CHEST_OFFSET_X = -0.32D;
+    private static final double CORPSE_VERTICAL_OFFSET = 0.15D;
+    private static final double ANCHOR_VERTICAL_OFFSET = -0.95D;
 
     private final Map<UUID, VisualCorpse> corpses = new ConcurrentHashMap<UUID, VisualCorpse>();
 
@@ -36,7 +39,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             return new CorpseServiceNoop().createCorpse(location, corpseName, skinOwnerName);
         }
 
-        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.5D, -0.95D, 0.5D), ArmorStand.class);
+        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.0D, ANCHOR_VERTICAL_OFFSET, 0.0D), ArmorStand.class);
         anchor.setGravity(false);
         anchor.setInvulnerable(true);
         anchor.setSilent(true);
@@ -142,7 +145,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
         String profileName = (String) invokeMethod(gameProfile, "getName");
 
-        moveEntity(serverPlayer, location.clone().add(0.5D, 0.15D, 0.5D), 0.0F, 0.0F);
+        moveEntity(serverPlayer, location.clone().add(CORPSE_CHEST_OFFSET_X, CORPSE_VERTICAL_OFFSET, 0.0D), 0.0F, 0.0F);
         configureCorpsePose(serverPlayer, location);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();
