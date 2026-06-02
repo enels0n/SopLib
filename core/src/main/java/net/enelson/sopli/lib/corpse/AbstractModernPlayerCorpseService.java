@@ -18,6 +18,7 @@ import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -207,14 +208,14 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     }
 
     private String buildCorpseProfileName(String corpseName, String skinOwnerName) {
-        String name = corpseName != null ? corpseName.trim() : "";
+        String name = corpseName != null ? ChatColor.stripColor(corpseName).trim() : "";
         if (name.isEmpty()) {
             name = skinOwnerName != null ? skinOwnerName.trim() : "";
         }
         if (name.isEmpty()) {
             name = "Corpse";
         }
-        return name;
+        return name.length() <= 16 ? name : name.substring(0, 16);
     }
 
     private Object extractProfile(Player player) {
