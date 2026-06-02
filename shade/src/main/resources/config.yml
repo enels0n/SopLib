@@ -1,0 +1,13 @@
+corpse:
+  # Keep the hidden armor stand interaction anchor aligned to the exact death point.
+  anchor-y-offset: -0.95
+
+  # Let the corpse direction follow the player's yaw at the moment of death.
+  align-to-death-yaw: true
+
+  # Visual corpse offsets relative to the death point.
+  # forward: positive = toward the direction the player looked, negative = backward
+  # right: positive = to the player's right, negative = to the left
+  body-forward-offset: -0.45
+  body-right-offset: 0.0
+  body-y-offset: 0.15

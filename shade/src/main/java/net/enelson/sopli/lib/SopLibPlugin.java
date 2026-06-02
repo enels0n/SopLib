@@ -6,12 +6,16 @@ import net.enelson.sopli.lib.item.ItemUtils;
 import net.enelson.sopli.lib.util.Util;
 import net.enelson.sopli.lib.version.VersionManager;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class SopLibPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         String detectedVersion = getMinecraftVersion();
 
         Util util = VersionManager.loadForVersion(Util.class, detectedVersion);
@@ -31,6 +35,24 @@ public class SopLibPlugin extends JavaPlugin {
         getLogger().info("[SopLib] SopLib class loader: " + SopLib.class.getClassLoader());
         SopLib.setInstance(new SopLib(util, itemUtils, itemNbtUtils));
         getLogger().info("[SopLib] SopLib.getInstance() after set -> " + SopLib.getInstance());
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!"soplib".equalsIgnoreCase(command.getName())) {
+            return false;
+        }
+        if (args.length == 1 && "reload".equalsIgnoreCase(args[0])) {
+            if (!sender.hasPermission("soplib.reload")) {
+                sender.sendMessage(ChatColor.RED + "No permission.");
+                return true;
+            }
+            reloadConfig();
+            sender.sendMessage(ChatColor.GREEN + "SopLib config reloaded.");
+            return true;
+        }
+        sender.sendMessage(ChatColor.YELLOW + "/" + label + " reload");
+        return true;
     }
 
     @Override

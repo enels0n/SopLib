@@ -19,18 +19,17 @@ import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.ChatColor;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.util.Vector;
 
 public abstract class AbstractModernPlayerCorpseService implements CorpseService {
 
     private static final String TAG = "soplib_corpse_anchor";
-    private static final double CORPSE_CHEST_OFFSET_X = 0.0D;
-    private static final double CORPSE_CHEST_OFFSET_Z = -0.45D;
-    private static final double CORPSE_VERTICAL_OFFSET = 0.15D;
-    private static final double ANCHOR_VERTICAL_OFFSET = -0.95D;
 
     private final Map<UUID, VisualCorpse> corpses = new ConcurrentHashMap<UUID, VisualCorpse>();
 
@@ -40,7 +39,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             return new CorpseServiceNoop().createCorpse(location, corpseName, skinOwnerName);
         }
 
-        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.0D, ANCHOR_VERTICAL_OFFSET, 0.0D), ArmorStand.class);
+        ArmorStand anchor = location.getWorld().spawn(location.clone().add(0.0D, getAnchorVerticalOffset(), 0.0D), ArmorStand.class);
         anchor.setGravity(false);
         anchor.setInvulnerable(true);
         anchor.setSilent(true);
@@ -146,7 +145,10 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
         String profileName = (String) invokeMethod(gameProfile, "getName");
 
-        moveEntity(serverPlayer, location.clone().add(CORPSE_CHEST_OFFSET_X, CORPSE_VERTICAL_OFFSET, CORPSE_CHEST_OFFSET_Z), 0.0F, 0.0F);
+        Location visualLocation = buildVisualLocation(location);
+        float corpseYaw = resolveCorpseYaw(location);
+        moveEntity(serverPlayer, visualLocation, corpseYaw, 0.0F);
+        applyCorpseRotation(serverPlayer, corpseYaw);
         configureCorpsePose(serverPlayer, location);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();
@@ -192,6 +194,65 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     private Object getWorldHandle(Location location) throws Exception {
         Method getHandle = location.getWorld().getClass().getMethod("getHandle");
         return getHandle.invoke(location.getWorld());
+    }
+
+    private Location buildVisualLocation(Location deathLocation) {
+        Location visualLocation = deathLocation.clone();
+        Vector forward = resolveHorizontalForward(deathLocation);
+        Vector right = new Vector(-forward.getZ(), 0.0D, forward.getX());
+        double forwardOffset = getConfiguredDouble("corpse.body-forward-offset", -0.45D);
+        double rightOffset = getConfiguredDouble("corpse.body-right-offset", 0.0D);
+        double yOffset = getConfiguredDouble("corpse.body-y-offset", 0.15D);
+        visualLocation.add(forward.clone().multiply(forwardOffset));
+        visualLocation.add(right.clone().multiply(rightOffset));
+        visualLocation.add(0.0D, yOffset, 0.0D);
+        return visualLocation;
+    }
+
+    private Vector resolveHorizontalForward(Location location) {
+        if (!getConfiguredBoolean("corpse.align-to-death-yaw", true)) {
+            return new Vector(0.0D, 0.0D, -1.0D);
+        }
+        Vector forward = location.getDirection().clone().setY(0.0D);
+        if (forward.lengthSquared() < 1.0E-6D) {
+            return new Vector(0.0D, 0.0D, -1.0D);
+        }
+        return forward.normalize();
+    }
+
+    private float resolveCorpseYaw(Location deathLocation) {
+        return getConfiguredBoolean("corpse.align-to-death-yaw", true) ? deathLocation.getYaw() : 180.0F;
+    }
+
+    private void applyCorpseRotation(Object serverPlayer, float yaw) {
+        tryInvokeCompatibleMethod(serverPlayer, new String[] { "setYRot", "m", "f" }, float.class, Float.valueOf(yaw));
+        tryInvokeCompatibleMethod(serverPlayer, new String[] { "setYHeadRot", "n", "g" }, float.class, Float.valueOf(yaw));
+        tryInvokeCompatibleMethod(serverPlayer, new String[] { "setYBodyRot", "o", "h" }, float.class, Float.valueOf(yaw));
+        setFloatFieldIfPresent(serverPlayer, new String[] { "yRotO", "aY" }, yaw);
+        setFloatFieldIfPresent(serverPlayer, new String[] { "yHeadRotO", "bb" }, yaw);
+        setFloatFieldIfPresent(serverPlayer, new String[] { "yBodyRotO", "bc" }, yaw);
+    }
+
+    private double getAnchorVerticalOffset() {
+        return getConfiguredDouble("corpse.anchor-y-offset", -0.95D);
+    }
+
+    private double getConfiguredDouble(String path, double fallback) {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("SopLib");
+        if (plugin == null) {
+            return fallback;
+        }
+        FileConfiguration config = plugin.getConfig();
+        return config != null ? config.getDouble(path, fallback) : fallback;
+    }
+
+    private boolean getConfiguredBoolean(String path, boolean fallback) {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("SopLib");
+        if (plugin == null) {
+            return fallback;
+        }
+        FileConfiguration config = plugin.getConfig();
+        return config != null ? config.getBoolean(path, fallback) : fallback;
     }
 
     private Object createGameProfile(String corpseName, String skinOwnerName) throws Exception {
@@ -697,6 +758,21 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             return true;
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    private void setFloatFieldIfPresent(Object target, String[] fieldNames, float value) {
+        for (String fieldName : fieldNames) {
+            try {
+                Field field = findField(target.getClass(), fieldName);
+                if (field == null || (field.getType() != float.class && field.getType() != Float.class)) {
+                    continue;
+                }
+                field.setAccessible(true);
+                field.set(target, Float.valueOf(value));
+                return;
+            } catch (Throwable ignored) {
+            }
         }
     }
 
