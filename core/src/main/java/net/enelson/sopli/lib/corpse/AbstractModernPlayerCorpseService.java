@@ -27,7 +27,8 @@ import org.bukkit.inventory.EquipmentSlot;
 public abstract class AbstractModernPlayerCorpseService implements CorpseService {
 
     private static final String TAG = "soplib_corpse_anchor";
-    private static final double CORPSE_CHEST_OFFSET_X = -0.32D;
+    private static final double CORPSE_CHEST_OFFSET_X = 0.0D;
+    private static final double CORPSE_CHEST_OFFSET_Z = -1.0D;
     private static final double CORPSE_VERTICAL_OFFSET = 0.15D;
     private static final double ANCHOR_VERTICAL_OFFSET = -0.95D;
 
@@ -145,7 +146,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
         String profileName = (String) invokeMethod(gameProfile, "getName");
 
-        moveEntity(serverPlayer, location.clone().add(CORPSE_CHEST_OFFSET_X, CORPSE_VERTICAL_OFFSET, 0.0D), 0.0F, 0.0F);
+        moveEntity(serverPlayer, location.clone().add(CORPSE_CHEST_OFFSET_X, CORPSE_VERTICAL_OFFSET, CORPSE_CHEST_OFFSET_Z), 0.0F, 0.0F);
         configureCorpsePose(serverPlayer, location);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();
