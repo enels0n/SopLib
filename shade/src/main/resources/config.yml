@@ -8,6 +8,6 @@ corpse:
   # Visual corpse offsets relative to the death point.
   # forward: positive = toward the direction the player looked, negative = backward
   # right: positive = to the player's right, negative = to the left
-  body-forward-offset: -0.45
+  body-forward-offset: -1.2
   body-right-offset: 0.0
   body-y-offset: 0.15

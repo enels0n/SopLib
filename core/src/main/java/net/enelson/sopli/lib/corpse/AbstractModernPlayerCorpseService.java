@@ -150,6 +150,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         moveEntity(serverPlayer, visualLocation, corpseYaw, 0.0F);
         applyCorpseRotation(serverPlayer, corpseYaw);
         configureCorpsePose(serverPlayer, location);
+        moveEntity(serverPlayer, visualLocation, corpseYaw, 0.0F);
+        applyCorpseRotation(serverPlayer, corpseYaw);
 
         int entityId = ((Number) invokeMethod(serverPlayer, "getId")).intValue();
         UUID entityUuid = (UUID) invokeMethod(serverPlayer, "getUUID");
@@ -198,9 +200,10 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     private Location buildVisualLocation(Location deathLocation) {
         Location visualLocation = deathLocation.clone();
-        Vector forward = resolveHorizontalForward(deathLocation);
+        float corpseYaw = resolveCorpseYaw(deathLocation);
+        Vector forward = resolveHorizontalForward(corpseYaw);
         Vector right = new Vector(-forward.getZ(), 0.0D, forward.getX());
-        double forwardOffset = getConfiguredDouble("corpse.body-forward-offset", -0.45D);
+        double forwardOffset = getConfiguredBodyForwardOffset();
         double rightOffset = getConfiguredDouble("corpse.body-right-offset", 0.0D);
         double yOffset = getConfiguredDouble("corpse.body-y-offset", 0.15D);
         visualLocation.add(forward.clone().multiply(forwardOffset));
@@ -209,19 +212,27 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         return visualLocation;
     }
 
-    private Vector resolveHorizontalForward(Location location) {
+    private Vector resolveHorizontalForward(float yaw) {
         if (!getConfiguredBoolean("corpse.align-to-death-yaw", true)) {
             return new Vector(0.0D, 0.0D, -1.0D);
         }
-        Vector forward = location.getDirection().clone().setY(0.0D);
-        if (forward.lengthSquared() < 1.0E-6D) {
-            return new Vector(0.0D, 0.0D, -1.0D);
-        }
-        return forward.normalize();
+        double radians = Math.toRadians(yaw);
+        return new Vector(-Math.sin(radians), 0.0D, Math.cos(radians)).normalize();
     }
 
     private float resolveCorpseYaw(Location deathLocation) {
-        return getConfiguredBoolean("corpse.align-to-death-yaw", true) ? deathLocation.getYaw() : 180.0F;
+        if (!getConfiguredBoolean("corpse.align-to-death-yaw", true)) {
+            return 180.0F;
+        }
+        return snapYawToCardinal(deathLocation.getYaw());
+    }
+
+    private float snapYawToCardinal(float yaw) {
+        float normalized = yaw % 360.0F;
+        if (normalized < 0.0F) {
+            normalized += 360.0F;
+        }
+        return Math.round(normalized / 90.0F) * 90.0F;
     }
 
     private void applyCorpseRotation(Object serverPlayer, float yaw) {
@@ -235,6 +246,22 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     private double getAnchorVerticalOffset() {
         return getConfiguredDouble("corpse.anchor-y-offset", -0.95D);
+    }
+
+    private double getConfiguredBodyForwardOffset() {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("SopLib");
+        if (plugin == null) {
+            return -1.2D;
+        }
+        FileConfiguration config = plugin.getConfig();
+        if (config == null) {
+            return -1.2D;
+        }
+        double configured = config.getDouble("corpse.body-forward-offset", -1.2D);
+        if (Math.abs(configured - (-0.45D)) <= 1.0E-6D || Math.abs(configured - (-0.8D)) <= 1.0E-6D) {
+            return -1.2D;
+        }
+        return configured;
     }
 
     private double getConfiguredDouble(String path, double fallback) {
