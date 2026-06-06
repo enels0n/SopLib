@@ -22,6 +22,10 @@ public final class ProtectionServices {
             return tryLoad("ProtectionService_1_16_5");
         }
 
+        if ("1.20.4".equals(minecraftVersion)) {
+            return tryLoad("ProtectionService_1_20_4");
+        }
+
         if ("1.21.1".equals(minecraftVersion)) {
             return tryLoad("ProtectionService_1_21_1");
         }

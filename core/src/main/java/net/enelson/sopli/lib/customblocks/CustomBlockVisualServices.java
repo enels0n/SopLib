@@ -22,6 +22,10 @@ public final class CustomBlockVisualServices {
             return tryLoad("CustomBlockVisualService_1_16_5");
         }
 
+        if ("1.20.4".equals(minecraftVersion)) {
+            return tryLoad("CustomBlockVisualService_1_20_4");
+        }
+
         if ("1.21.1".equals(minecraftVersion)) {
             return tryLoad("CustomBlockVisualService_1_21_1");
         }
