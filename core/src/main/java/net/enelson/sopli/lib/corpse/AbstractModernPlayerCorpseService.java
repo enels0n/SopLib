@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -142,8 +143,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         Object clientInformation = createClientInformation();
         Object serverPlayer = createServerPlayer(minecraftServer, serverLevel, gameProfile, clientInformation);
 
-        UUID profileUuid = (UUID) invokeMethod(gameProfile, "getId");
-        String profileName = (String) invokeMethod(gameProfile, "getName");
+        UUID profileUuid = getProfileId(gameProfile);
+        String profileName = getProfileName(gameProfile);
 
         Location visualLocation = buildVisualLocation(location);
         float corpseYaw = resolveCorpseYaw(location);
@@ -284,19 +285,48 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
     private Object createGameProfile(String corpseName, String skinOwnerName) throws Exception {
         Class<?> gameProfileClass = Class.forName("com.mojang.authlib.GameProfile");
-        Constructor<?> constructor = gameProfileClass.getConstructor(UUID.class, String.class);
         String name = buildCorpseProfileName(corpseName, skinOwnerName);
-        Object profile = constructor.newInstance(UUID.randomUUID(), name);
+        UUID uuid = UUID.randomUUID();
 
         Player onlinePlayer = skinOwnerName != null && !skinOwnerName.trim().isEmpty() ? Bukkit.getPlayerExact(skinOwnerName) : null;
-        if (onlinePlayer != null) {
-            Object sourceProfile = extractProfile(onlinePlayer);
-            if (sourceProfile != null) {
-                copyProfileProperties(sourceProfile, profile);
+        Object sourceProfile = onlinePlayer != null ? extractProfile(onlinePlayer) : null;
+
+        // New authlib (1.21.x) makes GameProfile a record with an immutable PropertyMap,
+        // so we cannot put() skin properties after construction. Build the profile with a
+        // populated PropertyMap up front via the GameProfile(UUID, String, PropertyMap) ctor.
+        if (sourceProfile != null) {
+            try {
+                Object sourceProperties = invokeFirstMethod(sourceProfile, "getProperties", "properties");
+                if (sourceProperties != null) {
+                    Class<?> propertyMapClass = Class.forName("com.mojang.authlib.properties.PropertyMap");
+                    Class<?> multimapClass = Class.forName("com.google.common.collect.Multimap");
+                    Constructor<?> gpCtor = findConstructor(gameProfileClass, UUID.class, String.class, propertyMapClass);
+                    Constructor<?> pmCtor = findConstructor(propertyMapClass, multimapClass);
+                    if (gpCtor != null && pmCtor != null && multimapClass.isInstance(sourceProperties)) {
+                        Object newProperties = pmCtor.newInstance(sourceProperties);
+                        return gpCtor.newInstance(uuid, name, newProperties);
+                    }
+                }
+            } catch (Exception exception) {
+                Bukkit.getLogger().warning("[SopLib corpse] building profile with skin failed, falling back: " + exception);
             }
         }
 
+        // Fallback for older authlib where the property map is mutable.
+        Constructor<?> constructor = gameProfileClass.getConstructor(UUID.class, String.class);
+        Object profile = constructor.newInstance(uuid, name);
+        if (sourceProfile != null) {
+            copyProfileProperties(sourceProfile, profile);
+        }
         return profile;
+    }
+
+    private Constructor<?> findConstructor(Class<?> type, Class<?>... parameterTypes) {
+        try {
+            return type.getConstructor(parameterTypes);
+        } catch (NoSuchMethodException ignored) {
+            return null;
+        }
     }
 
     private String buildCorpseProfileName(String corpseName, String skinOwnerName) {
@@ -334,17 +364,22 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     @SuppressWarnings("unchecked")
     private void copyProfileProperties(Object sourceProfile, Object targetProfile) {
         try {
-            Method getProperties = sourceProfile.getClass().getMethod("getProperties");
-            Object sourceProperties = getProperties.invoke(sourceProfile);
-            Object targetProperties = getProperties.invoke(targetProfile);
+            Object sourceProperties = invokeFirstMethod(sourceProfile, "getProperties", "properties");
+            Object targetProperties = invokeFirstMethod(targetProfile, "getProperties", "properties");
+            if (sourceProperties == null || targetProperties == null) {
+                return;
+            }
 
             Method values = sourceProperties.getClass().getMethod("values");
             Collection<Object> propertyValues = (Collection<Object>) values.invoke(sourceProperties);
+            if (propertyValues == null || propertyValues.isEmpty()) {
+                return;
+            }
 
             Method put = targetProperties.getClass().getMethod("put", Object.class, Object.class);
-            Method getName = propertyValues.iterator().next().getClass().getMethod("name");
             for (Object property : propertyValues) {
-                put.invoke(targetProperties, getName.invoke(property), property);
+                Object key = invokeFirstMethod(property, "name", "getName");
+                put.invoke(targetProperties, key, property);
             }
         } catch (Exception ignored) {
         }
@@ -477,7 +512,15 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     private Object createPlayerInfoEntry(Object serverPlayer) throws Exception {
         Class<?> entryClass = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$b");
         Object profile = invokeMethod(serverPlayer, "getGameProfile");
-        UUID uuid = (UUID) invokeMethod(profile, "getId");
+        UUID uuid = getProfileId(profile);
+        try {
+            Object props = invokeFirstMethod(profile, "getProperties", "properties");
+            Object vals = props == null ? null : props.getClass().getMethod("values").invoke(props);
+            int n = (vals instanceof Collection) ? ((Collection<?>) vals).size() : -1;
+            Bukkit.getLogger().info("[SopLib corpse] entry profile properties count=" + n);
+        } catch (Exception ex) {
+            Bukkit.getLogger().warning("[SopLib corpse] entry profile property check failed: " + ex);
+        }
 
         Class<?> gamemodeClass = Class.forName("net.minecraft.world.level.EnumGamemode");
         Method byId = gamemodeClass.getMethod("a", int.class);
@@ -485,18 +528,48 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
 
         Class<?> componentClass = Class.forName("net.minecraft.network.chat.IChatBaseComponent");
         Method literal = componentClass.getMethod("a", String.class);
-        Object displayName = literal.invoke(null, invokeMethod(profile, "getName"));
+        Object displayName = literal.invoke(null, getProfileName(profile));
 
-        Constructor<?> constructor = entryClass.getConstructor(
-                UUID.class,
-                Class.forName("com.mojang.authlib.GameProfile"),
-                boolean.class,
-                int.class,
-                gamemodeClass,
-                componentClass,
-                Class.forName("net.minecraft.network.chat.RemoteChatSession$a")
-        );
-        return constructor.newInstance(uuid, profile, Boolean.TRUE, Integer.valueOf(0), survivalMode, displayName, null);
+        // The Entry record constructor signature changed across versions
+        // (added listOrder / showHat in 1.21.x). Resolve the canonical constructor
+        // (the one taking a GameProfile) and fill arguments by parameter type.
+        Constructor<?> constructor = null;
+        for (Constructor<?> candidate : entryClass.getConstructors()) {
+            for (Class<?> paramType : candidate.getParameterTypes()) {
+                if (paramType.getName().endsWith("GameProfile")) {
+                    if (constructor == null || candidate.getParameterCount() > constructor.getParameterCount()) {
+                        constructor = candidate;
+                    }
+                    break;
+                }
+            }
+        }
+        if (constructor == null) {
+            throw new NoSuchMethodException("No player-info entry constructor found for " + getImplementationName());
+        }
+
+        Class<?>[] types = constructor.getParameterTypes();
+        Object[] args = new Object[types.length];
+        for (int i = 0; i < types.length; i++) {
+            Class<?> type = types[i];
+            if (type == UUID.class) {
+                args[i] = uuid;
+            } else if (type.getName().endsWith("GameProfile")) {
+                args[i] = profile;
+            } else if (type == boolean.class) {
+                args[i] = Boolean.TRUE; // listed / showHat
+            } else if (type == int.class) {
+                args[i] = Integer.valueOf(0); // latency / listOrder
+            } else if (gamemodeClass.isAssignableFrom(type)) {
+                args[i] = survivalMode;
+            } else if (componentClass.isAssignableFrom(type)) {
+                args[i] = displayName;
+            } else {
+                args[i] = null; // RemoteChatSession.Data, etc.
+            }
+        }
+        constructor.setAccessible(true);
+        return constructor.newInstance(args);
     }
 
     private Object createPlayerInfoRemovePacket(List<UUID> uuids) throws Exception {
@@ -630,31 +703,61 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
         Object worldHandle = getWorldHandle(location);
         Class<?> trackerEntryClass = resolveTrackerEntryClass();
 
-        for (Constructor<?> constructor : trackerEntryClass.getConstructors()) {
-            Class<?>[] parameterTypes = constructor.getParameterTypes();
+        StringBuilder diagnostics = new StringBuilder();
+        diagnostics.append("tracker=").append(trackerEntryClass.getName())
+                .append(" worldHandle=").append(worldHandle == null ? "null" : worldHandle.getClass().getName())
+                .append(" entity=").append(entity == null ? "null" : entity.getClass().getName());
 
-            if (parameterTypes.length == 6
-                    && parameterTypes[0].isInstance(worldHandle)
-                    && parameterTypes[1].isInstance(entity)
-                    && parameterTypes[2] == int.class
-                    && parameterTypes[3] == boolean.class
-                    && Consumer.class.isAssignableFrom(parameterTypes[4])
-                    && Set.class.isAssignableFrom(parameterTypes[5])) {
-                Consumer<Object> packetSender = packet -> {
-                };
-                return constructor.newInstance(worldHandle, entity, Integer.valueOf(0), Boolean.FALSE, packetSender, Collections.emptySet());
+        for (Constructor<?> constructor : trackerEntryClass.getDeclaredConstructors()) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+            diagnostics.append(" | ctor(");
+            for (int i = 0; i < parameterTypes.length; i++) {
+                if (i > 0) {
+                    diagnostics.append(", ");
+                }
+                diagnostics.append(parameterTypes[i].getName());
+            }
+            diagnostics.append(")");
+
+            if (parameterTypes.length < 4
+                    || !parameterTypes[0].isInstance(worldHandle)
+                    || !parameterTypes[1].isInstance(entity)) {
+                continue;
             }
 
-            if (parameterTypes.length == 5 && parameterTypes[0].isInstance(worldHandle) && parameterTypes[1].isInstance(entity)) {
-                Class<?> synchronizerClass = findNestedClass(trackerEntryClass, "Synchronizer");
-                Object packetSender = synchronizerClass != null
-                        ? Proxy.newProxyInstance(synchronizerClass.getClassLoader(), new Class<?>[] { synchronizerClass }, new NoOpInvocationHandler())
-                        : null;
-                return constructor.newInstance(worldHandle, entity, Integer.valueOf(0), Boolean.FALSE, packetSender);
+            Object[] args = new Object[parameterTypes.length];
+            args[0] = worldHandle;
+            args[1] = entity;
+            boolean usable = true;
+            for (int i = 2; i < parameterTypes.length; i++) {
+                Class<?> type = parameterTypes[i];
+                if (type == int.class) {
+                    args[i] = Integer.valueOf(0);
+                } else if (type == boolean.class) {
+                    args[i] = Boolean.FALSE;
+                } else if (Consumer.class.isAssignableFrom(type)) {
+                    args[i] = (Consumer<Object>) ignored -> {
+                    };
+                } else if (BiConsumer.class.isAssignableFrom(type)) {
+                    args[i] = (BiConsumer<Object, Object>) (first, second) -> {
+                    };
+                } else if (Set.class.isAssignableFrom(type)) {
+                    args[i] = Collections.emptySet();
+                } else if (type.isInterface()) {
+                    args[i] = Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] { type }, new NoOpInvocationHandler());
+                } else {
+                    usable = false;
+                    break;
+                }
+            }
+
+            if (usable) {
+                constructor.setAccessible(true);
+                return constructor.newInstance(args);
             }
         }
 
-        throw new NoSuchMethodException("No compatible tracker entry constructor found");
+        throw new NoSuchMethodException("No compatible tracker entry constructor found [" + diagnostics + "]");
     }
 
     private Class<?> resolveTrackerEntryClass() throws ClassNotFoundException {
@@ -768,6 +871,30 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     private Object invokeMethod(Object target, String methodName) throws Exception {
         Method method = target.getClass().getMethod(methodName);
         return method.invoke(target);
+    }
+
+    // authlib's GameProfile changed from getId()/getName() to the record-style
+    // id()/name() accessors in the authlib bundled with newer Minecraft (1.21.x).
+    // Try both so corpses work across versions.
+    private Object invokeFirstMethod(Object target, String... methodNames) throws Exception {
+        for (String methodName : methodNames) {
+            try {
+                Method method = target.getClass().getMethod(methodName);
+                return method.invoke(target);
+            } catch (NoSuchMethodException ignored) {
+                // try the next candidate name
+            }
+        }
+        throw new NoSuchMethodException("None of " + java.util.Arrays.toString(methodNames)
+                + " found on " + target.getClass().getName());
+    }
+
+    private UUID getProfileId(Object profile) throws Exception {
+        return (UUID) invokeFirstMethod(profile, "getId", "id");
+    }
+
+    private String getProfileName(Object profile) throws Exception {
+        return (String) invokeFirstMethod(profile, "getName", "name");
     }
 
     private void invokeMethod(Object target, String methodName, Class<?> parameterType, Object arg) throws Exception {
