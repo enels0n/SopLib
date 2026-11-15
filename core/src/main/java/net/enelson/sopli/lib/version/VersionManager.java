@@ -7,7 +7,7 @@ import java.util.ServiceLoader;
 public class VersionManager {
     public static String normalize(String version) {
         if (version == null) return "unknown";
-        return version.split("-")[0];
+        return version.trim().split("\\.build\\.", 2)[0].split("-")[0];
     }
 
     private static String extractVersionFromClassName(Class<?> clazz) {

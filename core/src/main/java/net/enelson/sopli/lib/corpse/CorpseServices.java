@@ -16,7 +16,7 @@ public final class CorpseServices {
             return new CorpseServiceNoop();
         }
 
-        String minecraftVersion = version.split("-")[0];
+        String minecraftVersion = net.enelson.sopli.lib.version.VersionManager.normalize(version);
 
         if ("1.16.5".equals(minecraftVersion)) {
             return tryLoad("CorpseService_1_16_5");
@@ -29,6 +29,15 @@ public final class CorpseServices {
         }
         if ("1.21.11".equals(minecraftVersion)) {
             return tryLoad("CorpseService_1_21_11");
+        }
+        if (minecraftVersion.matches("26\\.1(?:\\.\\d+)*")) {
+            return tryLoad("CorpseService_26_1");
+        }
+        if (minecraftVersion.matches("26\\.2(?:\\.\\d+)*")) {
+            return tryLoad("CorpseService_26_2");
+        }
+        if (minecraftVersion.matches("26\\.3(?:\\.\\d+)*")) {
+            return tryLoad("CorpseService_26_3");
         }
 
         Bukkit.getLogger().info("[SopLib] No CorpseService adapter for " + minecraftVersion + ", using noop.");

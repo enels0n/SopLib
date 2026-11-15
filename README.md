@@ -48,6 +48,9 @@ Current built-in version modules:
 - `1.20.4`
 - `1.21.1`
 - `1.21.11`
+- `26.1.x`
+- `26.2.x`
+- `26.3.x`
 
 ## Used By
 
@@ -83,3 +86,60 @@ mvn -q -DskipTests install
 
 Build artifacts are not stored in the repository.
 Use local Maven builds or download published jars from GitHub Releases.
+
+## Diagnostics and verification
+
+`/soplib doctor` (permission `soplib.doctor`, default: operators) reports the
+Minecraft/Paper and Java versions, selected adapters, optional dependencies,
+and enabled/disabled Sop plugins. It is read-only and works from the console.
+`doctor` and `reload` have permission-aware tab completion. A loaded adapter is
+not a guarantee that its packet operations have been tested with a player.
+
+Run the regression tests and distributable check from the project directory:
+
+```sh
+mvn --batch-mode clean verify
+python tools/verify_artifact.py
+```
+
+Build the full reactor with JDK 25 or newer. The GitHub workflow runs these
+checks on pushes and pull requests and uploads only `shade/target/SopLib.jar`.
+A `v*` tag additionally creates a GitHub Release containing that tested JAR.
+The workflow must first be committed and pushed; adding it locally does not
+activate GitHub Actions. Version changes and tag creation remain explicit.
+
+### Isolated server smoke test
+
+Supply a trusted Paper server JAR and any compatible dependency JARs. Review
+the Minecraft EULA before passing the explicit acceptance flag:
+
+```sh
+python tools/server_smoke.py --server-jar /path/to/paper.jar --dependency-jar /path/to/NBTAPI.jar --java /path/to/java --accept-eula
+```
+
+Each run uses a fresh temporary directory, a loopback-only listener and an
+automatically assigned port. It does not touch existing worlds or plugin
+configs. Logs and the test world are retained at the printed location for
+inspection. The test waits for startup, invokes `soplib doctor`, stops the
+server and fails on errors, exceptions, doctor failures or a timeout. Download
+and bootstrap time count toward `--timeout` (default: 240 seconds).
+
+This only verifies startup and diagnostics. Corpse rendering, virtual posters,
+translated packets and interactions need a separate test with a player.
+External NBTAPI/ProtocolLib/WorldGuard versions must support the tested server.
+
+### Compatibility status
+
+| Minecraft | Adapter exists | Local Maven build | Server smoke | Player test |
+| --- | --- | --- | --- | --- |
+| 1.16.5 | yes | passed | not run | not run |
+| 1.20.4 | yes | passed | not run | not run |
+| 1.21.1 | yes | passed | not run | not run |
+| 1.21.11 | yes | passed | not run | not run |
+| 26.1.x | yes | passed | not run | not run |
+| 26.2.x | yes | passed | not run | not run |
+| 26.3.x | yes | passed | not run | not run |
+
+The Maven column means the existing adapter modules compile against their
+declared dependencies, not that every plugin has been built against every API.
+No server compatibility certification is inferred from these build results.

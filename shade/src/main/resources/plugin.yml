@@ -2,12 +2,14 @@ name: SopLib
 main: net.enelson.sopli.lib.SopLibPlugin
 version: ${project.version}
 api-version: 1.16
-softdepend: [WorldGuard]
+softdepend: [WorldGuard, NBTAPI]
 authors: [E_NeLsOn]
 commands:
   soplib:
     description: SopLib administration
-    usage: /<command> reload
+    usage: /<command> <reload|doctor>
 permissions:
+  soplib.doctor:
+    default: op
   soplib.reload:
     default: op

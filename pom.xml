@@ -5,7 +5,7 @@
 
     <groupId>net.enelson.sopli.lib</groupId>
     <artifactId>soplib-parent</artifactId>
-    <version>1.0.2</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>SopLib Parent</name>
 
@@ -15,6 +15,9 @@
         <module>impl-1.20.4</module>
         <module>impl-1.21.1</module>
         <module>impl-1.21.11</module>
+        <module>impl-26.1</module>
+        <module>impl-26.2</module>
+        <module>impl-26.3</module>
         <module>shade</module>
     </modules>
 
@@ -25,6 +28,10 @@
     </properties>
 
     <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>

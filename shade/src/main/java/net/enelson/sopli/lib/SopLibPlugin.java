@@ -20,7 +20,7 @@ public class SopLibPlugin extends JavaPlugin {
 
         Util util = VersionManager.loadForVersion(Util.class, detectedVersion);
         ItemUtils itemUtils = VersionManager.loadForVersion(ItemUtils.class, detectedVersion);
-        ItemNBTUtils itemNbtUtils = VersionManager.loadForVersion(ItemNBTUtils.class, detectedVersion);
+        ItemNBTUtils itemNbtUtils = new ItemNBTUtils();
 
         if (util == null || itemUtils == null) {
             getLogger().severe("========================================");
@@ -42,6 +42,14 @@ public class SopLibPlugin extends JavaPlugin {
         if (!"soplib".equalsIgnoreCase(command.getName())) {
             return false;
         }
+        if (args.length == 1 && "doctor".equalsIgnoreCase(args[0])) {
+            if (!sender.hasPermission("soplib.doctor")) {
+                sender.sendMessage(ChatColor.RED + "No permission.");
+                return true;
+            }
+            DoctorCommand.report(sender);
+            return true;
+        }
         if (args.length == 1 && "reload".equalsIgnoreCase(args[0])) {
             if (!sender.hasPermission("soplib.reload")) {
                 sender.sendMessage(ChatColor.RED + "No permission.");
@@ -51,8 +59,20 @@ public class SopLibPlugin extends JavaPlugin {
             sender.sendMessage(ChatColor.GREEN + "SopLib config reloaded.");
             return true;
         }
-        sender.sendMessage(ChatColor.YELLOW + "/" + label + " reload");
+        sender.sendMessage(ChatColor.YELLOW + "/" + label + " <reload|doctor>");
         return true;
+    }
+
+    @Override
+    public java.util.List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        java.util.List<String> result = new java.util.ArrayList<String>();
+        if (args.length == 1) {
+            for (String action : new String[] { "reload", "doctor" }) {
+                if (sender.hasPermission("soplib." + action)
+                        && action.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) result.add(action);
+            }
+        }
+        return result;
     }
 
     @Override
@@ -69,6 +89,6 @@ public class SopLibPlugin extends JavaPlugin {
         if (bukkitVersion == null || bukkitVersion.isEmpty()) {
             return "unknown";
         }
-        return bukkitVersion.split("-")[0];
+        return VersionManager.normalize(bukkitVersion);
     }
 }

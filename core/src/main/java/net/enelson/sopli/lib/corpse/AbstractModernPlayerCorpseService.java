@@ -503,14 +503,17 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             throw new NoSuchMethodException("Unable to create template ClientboundPlayerInfoUpdatePacket");
         }
 
-        Field entriesField = packetClass.getDeclaredField("c");
+        Field entriesField;
+        try { entriesField = packetClass.getDeclaredField("entries"); }
+        catch (NoSuchFieldException legacy) { entriesField = packetClass.getDeclaredField("c"); }
         entriesField.setAccessible(true);
         entriesField.set(packet, Collections.singletonList(createPlayerInfoEntry(serverPlayer)));
         return packet;
     }
 
     private Object createPlayerInfoEntry(Object serverPlayer) throws Exception {
-        Class<?> entryClass = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$b");
+        Class<?> entryClass = loadMappedClass("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$Entry",
+                "net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$b");
         Object profile = invokeMethod(serverPlayer, "getGameProfile");
         UUID uuid = getProfileId(profile);
         try {
@@ -522,12 +525,12 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             Bukkit.getLogger().warning("[SopLib corpse] entry profile property check failed: " + ex);
         }
 
-        Class<?> gamemodeClass = Class.forName("net.minecraft.world.level.EnumGamemode");
-        Method byId = gamemodeClass.getMethod("a", int.class);
+        Class<?> gamemodeClass = loadMappedClass("net.minecraft.world.level.GameType", "net.minecraft.world.level.EnumGamemode");
+        Method byId = findCompatibleMethod(gamemodeClass, new String[] { "byId", "a" }, int.class);
         Object survivalMode = byId.invoke(null, Integer.valueOf(0));
 
-        Class<?> componentClass = Class.forName("net.minecraft.network.chat.IChatBaseComponent");
-        Method literal = componentClass.getMethod("a", String.class);
+        Class<?> componentClass = loadMappedClass("net.minecraft.network.chat.Component", "net.minecraft.network.chat.IChatBaseComponent");
+        Method literal = findCompatibleMethod(componentClass, new String[] { "literal", "a" }, String.class);
         Object displayName = literal.invoke(null, getProfileName(profile));
 
         // The Entry record constructor signature changed across versions
@@ -634,8 +637,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             if (team == null) {
                 return null;
             }
-            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
-            Method createMethod = findCompatibleMethod(packetClass, new String[] { "a" }, team.getClass(), boolean.class);
+            Class<?> packetClass = loadMappedClass("net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket", "net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
+            Method createMethod = findCompatibleMethod(packetClass, new String[] { "createAddOrModifyPacket", "a" }, team.getClass(), boolean.class);
             return createMethod != null ? createMethod.invoke(null, team, Boolean.TRUE) : null;
         } catch (Throwable ignored) {
             return null;
@@ -649,8 +652,8 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             if (team == null) {
                 return null;
             }
-            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
-            Method removeMethod = findCompatibleMethod(packetClass, new String[] { "a" }, team.getClass());
+            Class<?> packetClass = loadMappedClass("net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket", "net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam");
+            Method removeMethod = findCompatibleMethod(packetClass, new String[] { "createRemovePacket", "a" }, team.getClass());
             return removeMethod != null ? removeMethod.invoke(null, team) : null;
         } catch (Throwable ignored) {
             return null;
@@ -663,24 +666,24 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     }
 
     private Object createNmsScoreboardTeam(Object scoreboard, String profileName) throws Exception {
-        Class<?> teamClass = Class.forName("net.minecraft.world.scores.ScoreboardTeam");
+        Class<?> teamClass = loadMappedClass("net.minecraft.world.scores.PlayerTeam", "net.minecraft.world.scores.ScoreboardTeam");
         Constructor<?> constructor = teamClass.getConstructor(scoreboard.getClass(), String.class);
         String teamName = buildHiddenTeamName(profileName);
         Object team = constructor.newInstance(scoreboard, teamName);
 
-        Class<?> visibilityClass = Class.forName("net.minecraft.world.scores.ScoreboardTeamBase$EnumNameTagVisibility");
-        Method byString = visibilityClass.getMethod("a", String.class);
+        Class<?> visibilityClass = loadMappedClass("net.minecraft.world.scores.Team$Visibility", "net.minecraft.world.scores.ScoreboardTeamBase$EnumNameTagVisibility");
+        Method byString = findCompatibleMethod(visibilityClass, new String[] { "byName", "a" }, String.class);
         Object neverVisibility = byString.invoke(null, "never");
-        Method setNameTagVisibility = findCompatibleMethod(teamClass, new String[] { "a" }, visibilityClass);
+        Method setNameTagVisibility = findCompatibleMethod(teamClass, new String[] { "setNameTagVisibility", "a" }, visibilityClass);
         if (setNameTagVisibility != null) {
             setNameTagVisibility.invoke(team, neverVisibility);
         }
 
-        Method addPlayerToTeam = findCompatibleMethod(scoreboard.getClass(), new String[] { "a" }, String.class, teamClass);
+        Method addPlayerToTeam = findCompatibleMethod(scoreboard.getClass(), new String[] { "addPlayerToTeam", "a" }, String.class, teamClass);
         if (addPlayerToTeam != null) {
             addPlayerToTeam.invoke(scoreboard, profileName, team);
         } else {
-            Method getEntriesMethod = findCompatibleMethod(teamClass, new String[] { "g" });
+            Method getEntriesMethod = findCompatibleMethod(teamClass, new String[] { "getPlayers", "g" });
             Object entries = getEntriesMethod != null ? getEntriesMethod.invoke(team) : null;
             if (entries instanceof Collection) {
                 ((Collection) entries).add(profileName);
@@ -931,7 +934,7 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
     }
 
     private Object createBlockPosition(int x, int y, int z) throws Exception {
-        Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPosition");
+        Class<?> blockPosClass = loadMappedClass("net.minecraft.core.BlockPos", "net.minecraft.core.BlockPosition");
         Constructor<?> constructor = blockPosClass.getConstructor(int.class, int.class, int.class);
         return constructor.newInstance(Integer.valueOf(x), Integer.valueOf(y), Integer.valueOf(z));
     }
@@ -943,6 +946,11 @@ public abstract class AbstractModernPlayerCorpseService implements CorpseService
             }
         }
         return null;
+    }
+
+    private Class<?> loadMappedClass(String modern, String legacy) throws ClassNotFoundException {
+        try { return Class.forName(modern); }
+        catch (ClassNotFoundException ignored) { return Class.forName(legacy); }
     }
 
     private Object defaultValue(Class<?> type) {

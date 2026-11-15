@@ -16,7 +16,7 @@ public final class ProtectionServices {
             return new ProtectionServiceNoop();
         }
 
-        String minecraftVersion = version.split("-")[0];
+        String minecraftVersion = net.enelson.sopli.lib.version.VersionManager.normalize(version);
 
         if ("1.16.5".equals(minecraftVersion)) {
             return tryLoad("ProtectionService_1_16_5");
@@ -32,6 +32,18 @@ public final class ProtectionServices {
 
         if ("1.21.11".equals(minecraftVersion)) {
             return tryLoad("ProtectionService_1_21_11");
+        }
+
+        if (minecraftVersion.matches("26\\.1(?:\\.\\d+)*")) {
+            return tryLoad("ProtectionService_26_1");
+        }
+
+        if (minecraftVersion.matches("26\\.2(?:\\.\\d+)*")) {
+            return tryLoad("ProtectionService_26_2");
+        }
+
+        if (minecraftVersion.matches("26\\.3(?:\\.\\d+)*")) {
+            return tryLoad("ProtectionService_26_3");
         }
 
         Bukkit.getLogger().info("[SopLib] No ProtectionService adapter for " + minecraftVersion + ", using noop.");
