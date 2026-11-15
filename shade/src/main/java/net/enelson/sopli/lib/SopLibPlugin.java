@@ -24,7 +24,11 @@ public class SopLibPlugin extends JavaPlugin {
 
         if (util == null || itemUtils == null) {
             getLogger().severe("========================================");
-            getLogger().severe(" Unsupported Minecraft version: " + detectedVersion);
+            String suffix = net.enelson.sopli.lib.version.ServerCompatibility.adapterSuffix(detectedVersion);
+            getLogger().severe(suffix == null ? " Unsupported Minecraft version: " + detectedVersion
+                    : " Adapter could not be initialized for Minecraft " + detectedVersion + " (" + suffix + ")");
+            getLogger().severe(" Required adapters: Util=" + (util != null) + ", ItemUtils=" + (itemUtils != null)
+                    + ". Check the SopLib JAR, Java version and installed dependencies.");
             getLogger().severe(" SopLib will be disabled.");
             getLogger().severe("========================================");
             getServer().getPluginManager().disablePlugin(this);

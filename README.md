@@ -89,6 +89,23 @@ Use local Maven builds or download published jars from GitHub Releases.
 
 ## Diagnostics and verification
 
+### Shared compatibility API (1.2.0)
+
+`MinecraftVersion.parse(raw)` strips Paper build metadata and provides numeric
+comparison (`compareTo`, `isAtLeast`) and release-family matching (`isRelease`).
+Malformed input yields an unknown version; comparing unknown versions throws
+instead of guessing. `ServerCompatibility.current()` reads the current server;
+`adapterSuffix(raw)`, `hasAdapter(raw)` and `minimumJava(raw)` use one maintained
+policy. Unsupported releases return no adapter and an unknown Java minimum (-1).
+The legacy `VersionManager.normalize` API remains available.
+
+All internal services and `doctor` use this policy. Adapter loading no longer
+falls back to an arbitrary provider just because major/minor versions match.
+`Particles.dust()` selects DUST or legacy REDSTONE without version checks.
+SopAfterworld 1.0.1 and SopPosters 0.0.2-SNAPSHOT require SopLib 1.2.0 or newer;
+update SopLib together with these consumers. Their existing hard dependency on
+SopLib is retained. Independent plugins do not acquire a new dependency.
+
 `/soplib doctor` (permission `soplib.doctor`, default: operators) reports the
 Minecraft/Paper and Java versions, selected adapters, optional dependencies,
 and enabled/disabled Sop plugins. It is read-only and works from the console.

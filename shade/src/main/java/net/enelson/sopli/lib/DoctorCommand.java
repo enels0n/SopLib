@@ -1,6 +1,7 @@
 package net.enelson.sopli.lib;
 
 import net.enelson.sopli.lib.version.VersionManager;
+import net.enelson.sopli.lib.version.ServerCompatibility;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
@@ -12,13 +13,13 @@ final class DoctorCommand {
         String version = VersionManager.normalize(Bukkit.getBukkitVersion());
         sender.sendMessage("[SopLib doctor] Minecraft=" + version + "; Bukkit=" + Bukkit.getBukkitVersion());
         sender.sendMessage("Java=" + System.getProperty("java.version") + "; server=" + Bukkit.getVersion());
-        boolean supported = version.matches("(?:1\\.16\\.5|1\\.20\\.4|1\\.21\\.(?:1|11)|26\\.[123](?:\\.\\d+)*)");
+        boolean supported = ServerCompatibility.hasAdapter(version);
         sender.sendMessage((supported ? "[OK]" : "[WARN]") + " Adapter release family: " + version);
-        int required = version.startsWith("26.") ? 25 : version.startsWith("1.21.") ? 21
-                : version.startsWith("1.20.") ? 17 : 8;
+        int required = ServerCompatibility.minimumJava(version);
         String java = System.getProperty("java.specification.version");
         int actual = Integer.parseInt(java.startsWith("1.") ? java.substring(2) : java);
-        sender.sendMessage((actual >= required ? "[OK]" : "[FAIL]") + " Java minimum=" + required);
+        sender.sendMessage(required < 0 ? "[WARN] Java minimum is unknown for this release"
+                : (actual >= required ? "[OK]" : "[FAIL]") + " Java minimum=" + required);
         SopLib lib = SopLib.getInstance();
         if (lib == null) {
             sender.sendMessage("[FAIL] SopLib is not initialized");

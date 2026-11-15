@@ -17,34 +17,8 @@ public final class RegionServices {
         }
 
         String minecraftVersion = net.enelson.sopli.lib.version.VersionManager.normalize(version);
-
-        if ("1.16.5".equals(minecraftVersion)) {
-            return tryLoad("RegionService_1_16_5");
-        }
-
-        if ("1.20.4".equals(minecraftVersion)) {
-            return tryLoad("RegionService_1_20_4");
-        }
-
-        if ("1.21.1".equals(minecraftVersion)) {
-            return tryLoad("RegionService_1_21_1");
-        }
-
-        if ("1.21.11".equals(minecraftVersion)) {
-            return tryLoad("RegionService_1_21_11");
-        }
-
-        if (minecraftVersion.matches("26\\.1(?:\\.\\d+)*")) {
-            return tryLoad("RegionService_26_1");
-        }
-
-        if (minecraftVersion.matches("26\\.2(?:\\.\\d+)*")) {
-            return tryLoad("RegionService_26_2");
-        }
-
-        if (minecraftVersion.matches("26\\.3(?:\\.\\d+)*")) {
-            return tryLoad("RegionService_26_3");
-        }
+        String suffix = net.enelson.sopli.lib.version.ServerCompatibility.adapterSuffix(version);
+        if (suffix != null) return tryLoad("RegionService_" + suffix);
 
         Bukkit.getLogger().info("[SopLib] No RegionService adapter for " + minecraftVersion + ", using noop.");
         return new RegionServiceNoop();

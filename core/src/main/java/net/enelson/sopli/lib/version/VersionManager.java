@@ -22,14 +22,11 @@ public class VersionManager {
     }
 
     public static <T> T loadForVersion(Class<T> type, String serverVersion) {
-        String normalized = normalize(serverVersion);
-        String[] svParts = normalized.split("\\.");
-        String svMajorMinor = svParts.length >= 2 ? svParts[0] + "." + svParts[1] : normalized;
+        String suffix = ServerCompatibility.adapterSuffix(serverVersion);
+        if (suffix == null) return null;
 
         ServiceLoader<T> loader = ServiceLoader.load(type, VersionManager.class.getClassLoader());
         Iterator<T> iterator = loader.iterator();
-        T exact = null;
-        T sameMinor = null;
 
         while (true) {
             final boolean hasNext;
@@ -50,22 +47,9 @@ public class VersionManager {
                 continue;
             }
 
-            String implVersion = extractVersionFromClassName(impl.getClass());
-            String[] ivParts = implVersion.split("\\.");
-            String ivMajorMinor = ivParts.length >= 2 ? ivParts[0] + "." + ivParts[1] : implVersion;
-
-            if (implVersion.equals(normalized)) {
-                exact = impl;
-                break;
-            }
-
-            if (sameMinor == null && ivMajorMinor.equals(svMajorMinor)) {
-                sameMinor = impl;
-            }
+            if (impl.getClass().getSimpleName().endsWith("_" + suffix)) return impl;
         }
 
-        if (exact != null) return exact;
-        if (sameMinor != null) return sameMinor;
         return null;
     }
 }
