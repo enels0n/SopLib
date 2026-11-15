@@ -1,5 +1,6 @@
 """Run an explicitly supplied Paper JAR in a fresh, isolated directory."""
 import argparse
+import hashlib
 from pathlib import Path
 import queue
 import shutil
@@ -7,12 +8,14 @@ import subprocess
 import tempfile
 import threading
 import time
+from zipfile import ZipFile
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-jar", type=Path, required=True)
     parser.add_argument("--dependency-jar", type=Path, action="append", default=[])
+    parser.add_argument("--bootstrap-jar", type=Path, help="Pre-downloaded Mojang server JAR; hash checked against Paper")
     parser.add_argument("--java", default="java")
     parser.add_argument("--accept-eula", action="store_true")
     parser.add_argument("--timeout", type=int, default=240)
@@ -21,12 +24,20 @@ def main():
         parser.error("Read https://aka.ms/MinecraftEULA and explicitly pass --accept-eula")
     root = Path(__file__).resolve().parents[1]
     plugin = root / "shade/target/SopLib.jar"
-    for file in [args.server_jar, plugin, *args.dependency_jar]:
+    for file in [args.server_jar, plugin, *args.dependency_jar, *([args.bootstrap_jar] if args.bootstrap_jar else [])]:
         if not file.is_file():
             parser.error(f"Missing JAR: {file}")
+    if args.bootstrap_jar:
+        with ZipFile(args.server_jar) as paper:
+            expected, _, cache_name = paper.read("META-INF/download-context").decode().strip().split("\t")
+        if hashlib.sha256(args.bootstrap_jar.read_bytes()).hexdigest() != expected:
+            parser.error("Mojang bootstrap JAR checksum does not match Paper")
     work = Path(tempfile.mkdtemp(prefix="soplib-smoke-"))
     (work / "plugins").mkdir()
     shutil.copy2(args.server_jar, work / "paper.jar")
+    if args.bootstrap_jar:
+        (work / "cache").mkdir()
+        shutil.copy2(args.bootstrap_jar, work / "cache" / Path(cache_name).name)
     for file in [plugin, *args.dependency_jar]:
         shutil.copy2(file, work / "plugins" / file.name)
     (work / "eula.txt").write_text("eula=true\n", encoding="utf-8")

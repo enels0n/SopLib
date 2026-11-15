@@ -128,6 +128,11 @@ This only verifies startup and diagnostics. Corpse rendering, virtual posters,
 translated packets and interactions need a separate test with a player.
 External NBTAPI/ProtocolLib/WorldGuard versions must support the tested server.
 
+If Java cannot download the Mojang bootstrap JAR, download it separately from
+the URL in Paper's `META-INF/download-context` and pass `--bootstrap-jar PATH`.
+The script verifies its SHA-256 against Paper's metadata before seeding the
+isolated cache. This does not skip any plugin checks or accept the EULA for you.
+
 ### Compatibility status
 
 | Minecraft | Adapter exists | Local Maven build | Server smoke | Player test |
